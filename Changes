@@ -1,5 +1,9 @@
 Revision history for Net::Hotline
 
+0.82 (11.27.2002) - John Siracusa <siracusa@mindspring.com>
+
+    * Clarified ambiguous call to rename() in Client.pm
+
 0.82 (06.10.2002) - John Siracusa <siracusa@mindspring.com>
 
     * Fixed bug if 455 (http://rt.cpan.org/NoAuth/Bug.html?id=455)

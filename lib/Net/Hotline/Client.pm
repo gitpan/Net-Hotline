@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.82';
+$VERSION = '0.83';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -3935,7 +3935,7 @@ sub recv_file
 
     # Rename data file to remove the .data part
     ($finished_file = $data_file) =~ s/$self->{'DATA_FORK_EXT'}$//;
-    unless(rename($data_file, $finished_file))
+    unless(CORE::rename($data_file, $finished_file))
     {
       $task->error_text(qq(Could not rename "$data_file" to "$finished_file": $!));
       $self->{'LAST_ERROR'} = $task->error_text();
@@ -3950,7 +3950,7 @@ sub recv_file
   elsif(! -e $rsrc_file)
   {
     ($finished_file = $data_file) =~ s/$self->{'DATA_FORK_EXT'}$//;
-    rename($data_file, $finished_file);
+    CORE::rename($data_file, $finished_file);
     $data_file = $finished_file;
   }
 
