@@ -1,5 +1,9 @@
 Revision history for Perl module Net::Hotline
 
+0.72 (02.27.1999) - John Siracusa <siracusa@mindspring.com>
+
+    * Shortened internal functions name to satisfy AutoLoader on Mac OS.
+
 0.71 (02.05.1999) - John Siracusa <siracusa@mindspring.com>
 
     * Added the ban() method, ban task-type constant, and ban_handler()

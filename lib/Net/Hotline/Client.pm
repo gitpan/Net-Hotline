@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.71';
+$VERSION = '0.72';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -1482,7 +1482,7 @@ sub put_file     { al09_put_file(@_)     }
 # _al06_put_file_resume
 # _al07_get_file_now
 # _al08_get_file_resume
-# _al09_file_action_packet_stub
+# _al09_file_action_stub
 # _al10_post_news_now
 # _al11_pchat_invite_now
 # _al12_pchat_accept_now
@@ -1871,7 +1871,7 @@ sub _put_file
   ($src_file = $src_path) =~ s/.*?$local_sep([^$local_sep]+)$/$1/o;
   $dest_path = "$dest_path$remote_sep$src_file";
 
-  ($data, $task_num) = _al09_file_action_packet_stub($self, $dest_path, HTLC_HDR_FILE_PUT);
+  ($data, $task_num) = _al09_file_action_stub($self, $dest_path, HTLC_HDR_FILE_PUT);
 
   # Set new length: old length plus 8 bytes for the size atom
   $length    = (unpack("N", substr($data, 16, 4)) + 8);
@@ -2027,7 +2027,7 @@ sub _al06_put_file_resume
   ($src_file = $src_path) =~ s/.*?$local_sep([^$local_sep]+)$/$1/o;
   $dest_path = "$dest_path$remote_sep$src_file";
 
-  ($data, $task_num) = _al09_file_action_packet_stub($self, $dest_path, HTLC_HDR_FILE_PUT);
+  ($data, $task_num) = _al09_file_action_stub($self, $dest_path, HTLC_HDR_FILE_PUT);
 
   # Add upload resume magic
   $data .= HTXF_RESUME_MAGIC;
@@ -2246,7 +2246,7 @@ sub _al08_get_file_resume
   $dest_dir = $self->{'DOWNLOADS_DIR'};
   $dest_dir .= $local_sep  if($dest_dir =~ /\S/ && $dest_dir !~ /$local_sep$/o);
 
-  ($data, $task_num) = _al09_file_action_packet_stub($self, $path, HTLC_HDR_FILE_GET);
+  ($data, $task_num) = _al09_file_action_stub($self, $path, HTLC_HDR_FILE_GET);
 
   ($data_file = $path) =~ /$remote_sep([^$remote_sep]+)$/;
   $data_file = "$dest_dir$1";
@@ -2341,7 +2341,7 @@ sub _al08_get_file_resume
   else { return }
 }
 
-sub _al09_file_action_packet_stub
+sub _al09_file_action_stub
 {
   my($self, $path, $type) = @_;
 
@@ -2420,7 +2420,7 @@ sub _file_action_simple
   my($server) = $self->{'SERVER'};
   return  unless($server->opened() && length($path));
 
-  my($data, $task_num) = _al09_file_action_packet_stub($self, $path, $type);
+  my($data, $task_num) = _al09_file_action_stub($self, $path, $type);
 
   _debug(_hexdump($data));
 
