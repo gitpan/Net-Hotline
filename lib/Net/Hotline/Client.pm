@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.69';
+$VERSION = '0.70';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -3598,7 +3598,7 @@ sub recv_file
   }
 
   # If we're on Mac OS and we can write directly to the resource fork
-  if(defined($res_fd) && $rsrc_fh->fdopen($res_fd, "r"))
+  if(defined($res_fd) && $rsrc_fh->fdopen($res_fd, "w"))
   {
     $real_mac_res_fork = 1;
     # Temporarily set file type and creator to Hotline's "partial download"

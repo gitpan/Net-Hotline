@@ -193,7 +193,7 @@ Clears the error message text available via C<last_error()>.
 C<last_error()> is not cleared by the client object, so you may need to
 explicitly clear it before running a blocking task to prevent it from
 containing an old, unrelated error message if the blocking task somehow
-fails without setting C<last_error()>.  (This should not happen, but
+failed without setting C<last_error()>.  (This should not happen, but
 you never know...)
 
 =item connect_timeout SECS
@@ -210,7 +210,7 @@ is ".data"
 =item downloads_dir PATH
 
 Sets the directory where downloaded files are placed to PATH (if present).
-Return the current downloads directory path.
+Returns the current setting.
 
 =item event_timing SECS
 
@@ -240,9 +240,9 @@ Sets the resource fork filename extension for downloads to TEXT (if
 present). Returns the current resource fork filename extension.  The
 default setting is ".rsrc"
 
-=item tracker TEXT
+=item tracker ADDR
 
-Sets the tracker address to TEXT (if present), where TEXT is an IP address
+Sets the tracker address to ADDR (if present), where ADDR is an IP address
 or hostname, optionally followed by a colon and a port number.  Returns the
 current tracker address.
 
@@ -1221,17 +1221,11 @@ Returns the Net::Hotline::Client version string.
 
 User administration.
 
-=item *
-
-Private chat.
-
 =back
 
 =head1 BUGS
 
-This is the first release with complete file transfer capabilities, so
-there are bound to be problems.  Please send bug reports to
-siracusa@mindspring.com.
+Please send bug reports to siracusa@mindspring.com.
 
 =head1 AUTHOR
 

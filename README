@@ -16,8 +16,8 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.69 fixes a few bugs in the macbinary() method.  See the "Changes"
-file for more details.
+Version 0.70 fixes a bug that affected Mac OS file downloads.  See the
+"Changes" file for more details.
 
 INSTALLATION
 

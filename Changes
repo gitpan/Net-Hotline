@@ -1,5 +1,11 @@
 Revision history for Perl module Net::Hotline
 
+0.70 (11.26.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Fixed a bug in the recv_file() method: changed the mode from "r"
+      to "w" in a call to fdopen()...which usually helps when you're
+      trying to create a new file.  Yeesh.
+
 0.69 (11.14.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Fixed bugs in the the pack() formats in the macbinary() method.
