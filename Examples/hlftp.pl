@@ -9,7 +9,7 @@
 ##            demonstrate the Net::Hotline::Client module's blocking task mode.
 ##
 ## Created:  July      10th, 1998
-## Modified: September  6th, 1999
+## Modified: September 21st, 1999
 ##
 
 use strict;
@@ -24,7 +24,7 @@ use Net::Hotline::Constants
   qw(HTXF_PARTIAL_TYPE HTXF_PARTIAL_CREATOR HTLC_MACOS_TO_UNIX_TIME
      HTLC_FOLDER_TYPE HTLC_INFO_FOLDER_TYPE HTLC_INFO_FALIAS_TYPE);
 
-my $VERSION = '1.06';
+my $VERSION = '1.07';
 
 my(%OPT, $LPWD, $RPWD, $NICK, $TERM);
 
@@ -36,7 +36,7 @@ if($OPT{'v'})
   exit(0);
 }
 
-&Usage  if($OPT{'h'});
+Usage()  if($OPT{'h'});
 
 my $DEF_LOGIN    = 'guest';
 my $DEF_PASSWORD = '';
@@ -97,11 +97,11 @@ sub print_wrap; # Forward declaration
 
 MAIN:
 {
-  my($login, $pass, $server, $port, $path) = &Parse_Command_Line;
+  my($login, $pass, $server, $port, $path) = Parse_Command_Line();
 
-  my($hlc) = &Start_Up($login, $pass, $server, $port, $path);
+  my($hlc) = Start_Up($login, $pass, $server, $port, $path);
 
-  &Converse($hlc, $server);
+  Converse($hlc, $server);
 }
 
 sub Parse_Command_Line
@@ -112,7 +112,7 @@ sub Parse_Command_Line
   }
   elsif(@ARGV > 1)
   {
-    &Usage;
+    Usage();
   }
   else
   {
@@ -142,7 +142,7 @@ sub Parse_Command_Line
     }
     else
     {
-      &Usage;
+      Usage();
     }
   }
 }
@@ -172,9 +172,9 @@ sub Help
 
   if($cmd =~ /\S/)
   {
-    $cmd = &Shell_RE_To_Perl_RE($cmd);
+    $cmd = Shell_RE_To_Perl_RE($cmd);
 
-    if(&Safe_Regex(\$cmd))
+    if(Safe_Regex(\$cmd))
     {
       foreach my $hcmd (sort(keys(%HELP)))
       {
@@ -228,10 +228,10 @@ sub Start_Up
   if($MACBIN_MODE && $MACOS)
   {
     print_wrap "Sorry, MacBinary mode is disabled on Mac OS.\n";
-    &MacBinary_Mode('off');
+    MacBinary_Mode('off');
   }
 
-  ($login, $pass) = &Login_Pass  if($OPT{'u'});
+  ($login, $pass) = Login_Pass()  if($OPT{'u'});
 
   my($hlc) = new Net::Hotline::Client;
 
@@ -241,7 +241,7 @@ sub Start_Up
 
   return($hlc)  unless($server);
 
-  $path = &Convert_Path($path);
+  $path = Convert_Path($path);
 
   $server_arg .= ":$port"  if($port =~ /^\d+$/);
 
@@ -285,7 +285,7 @@ sub Start_Up
   if($path =~ m#:|/#)
   {
     print_wrap "Changing directory to <root>...\n"  unless($OPT{'q'});
-    &Change_Dir_Remote($hlc, $path);
+    Change_Dir_Remote($hlc, $path);
   }
   elsif(length($path))
   {
@@ -308,11 +308,11 @@ sub Start_Up
     if($info->type() =~ /^($FOLDER_REGEX)$/i)
     {
       print_wrap "Changing directory to $path...\n"  unless($OPT{'q'});
-      &Change_Dir_Remote($hlc, $path);
+      Change_Dir_Remote($hlc, $path);
     }
     else
     {
-      if(&Get_File($hlc, $path))
+      if(Get_File($hlc, $path))
       {
         $hlc->disconnect();
         exit;
@@ -335,7 +335,7 @@ sub Disconnect
   {
     $hlc->disconnect();
     print_wrap "Connection closed.\n"  unless($OPT{'q'});
-    &Set_Prompt($hlc, $prompt_ref);
+    Set_Prompt($hlc, $prompt_ref);
   }
   else
   {
@@ -357,7 +357,7 @@ sub Reconnect
 
   if($user_pass)
   {
-    ($login, $pass) = &Login_Pass;
+    ($login, $pass) = Login_Pass();
   }
   else
   {
@@ -436,11 +436,11 @@ sub Converse
   print $OUT "Welcome to hlftp version $VERSION by John Siracusa\n"
     unless($OPT{'q'} || @ARGV);
 
-  &Set_Prompt($hlc, \$prompt);
+  Set_Prompt($hlc, \$prompt);
 
   while(defined($cmd = $TERM->readline($prompt)))
   {
-    &Process_Command($hlc, $cmd, \$prompt);
+    Process_Command($hlc, $cmd, \$prompt);
     $TERM->addhistory($cmd)  if($cmd =~ /\S/);
   }
 }
@@ -463,80 +463,80 @@ sub Process_Command
 
   if(/^ls(?:\s+(?:(-l)(?:\s+|$))?(.*))?/)
   {
-    &List($hlc, $1, $2);
+    List($hlc, $1, $2);
   }
   elsif(/^lls(?:\s+(?:(-l)(?:\s+|$))?(.*))?/)
   {
-    &List_Local($hlc, $1, $2);
+    List_Local($hlc, $1, $2);
   }
   elsif(/^(?:dir|ll)(?:\s+(\S.*))?$/)
   {
-    &List($hlc, '-l', $1);
+    List($hlc, '-l', $1);
   }
   elsif(/^(?:lll|ldir)(?:\s+(\S.*))?$/)
   {
-    &List_Local($hlc, '-l', $1);
+    List_Local($hlc, '-l', $1);
   }
   elsif(/^cd\s+(\S.*)/)
   {
-    &Change_Dir_Remote($hlc, $1);
+    Change_Dir_Remote($hlc, $1);
   }
   elsif(/^\.\.$/)
   {
-    &Change_Dir_Remote($hlc, '..');
+    Change_Dir_Remote($hlc, '..');
   }
   elsif(/^lcd\s+(\S.*)/)
   {
-    &Change_Dir_Local($hlc, $1);
+    Change_Dir_Local($hlc, $1);
   }
   elsif(/^get\s+(\S.*)/)
   {
-    &Get_File($hlc, $1);
+    Get_File($hlc, $1);
   }
   elsif(/^mget\s+(\S.*)/)
   {
-    &Get_Files($hlc, $1);
+    Get_Files($hlc, $1);
   }
   elsif(/^put\s+(\S.*)/)
   {
-    &Put_File($hlc, $1);
+    Put_File($hlc, $1);
   }
   elsif(/^mput\s+(\S.*)/)
   {
-    &Put_Files($hlc, $1);
+    Put_Files($hlc, $1);
   }
   elsif(/^(?:del(?:ete)?|rm)\s+(\S.*)/)
   {
-    &Delete_File($hlc, $1);
+    Delete_File($hlc, $1);
   }
   elsif(/^mkdir\s+(\S.*)/)
   {
-    &Make_Dir($hlc, $1);
+    Make_Dir($hlc, $1);
   }
   elsif(/^clobber(?:\s+(on|yes|off|no))?$/)
   {
-    &Clobber_Mode($hlc, $1);
+    Clobber_Mode($hlc, $1);
   }
   elsif(/^(?:mac)?bin(?:ary)?(?:\s+(on|yes|off|no))?$/)
   {
-    &MacBinary_Mode($1);
+    MacBinary_Mode($1);
   }
   elsif(/^info(?:rmation)?\s+(\S.*)/)
   {
-    &Get_Info($hlc, $1);
+    Get_Info($hlc, $1);
   }
   elsif(/^(?:\?+|help)(?:\s+(\S.*))?$/i)
   {
-    &Help($1);
+    Help($1);
   }
   elsif(/^close$/)
   {
-    &Disconnect($hlc, $prompt_ref);
+    Disconnect($hlc, $prompt_ref);
   }
   elsif(/^open\s+(?:(-u)\s+)?(\S.*)/)
   {
-    &Reconnect($hlc, $1, $2);
-    &Set_Prompt($hlc, $prompt_ref);
+    Reconnect($hlc, $1, $2);
+    Set_Prompt($hlc, $prompt_ref);
   }
   elsif(/^prompt$/)
   {
@@ -546,12 +546,12 @@ sub Process_Command
   elsif(/^long\s*prompt$/)
   {
     $OPT{'p'} = 0;
-    &Set_Prompt($hlc, $prompt_ref);
+    Set_Prompt($hlc, $prompt_ref);
   }
   elsif(/^short\s*prompt$/)
   {
     $OPT{'p'} = 1;
-    &Set_Prompt($hlc, $prompt_ref);
+    Set_Prompt($hlc, $prompt_ref);
   }
   elsif(/^ver(s(ion)?)?$/)
   {
@@ -577,19 +577,19 @@ sub Process_Command
   }
   elsif(/^nick\s+("?)(\S.*?)\1$/) #"
   {
-    if(&Nick($hlc, $2))
+    if(Nick($hlc, $2))
     {
-      &Set_Prompt($hlc, $prompt_ref);
+      Set_Prompt($hlc, $prompt_ref);
     }
   }
   elsif(/^icon\s+(\d+)/)
   {
-    &Icon($hlc, $1);
-    &Set_Prompt($hlc, $prompt_ref);
+    Icon($hlc, $1);
+    Set_Prompt($hlc, $prompt_ref);
   }
   elsif(/^stat(s|us)?/)
   {
-    &Status($hlc);
+    Status($hlc);
   }
   elsif(/^quiet|shh+$/)
   {
@@ -699,7 +699,7 @@ sub Get_File
   }
   else
   {
-    @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)))
+    @path = Rel_To_Abs_Path_Remote(Convert_Path(Clean_Path($path)))
   }
 
   $path = join($REMOTE_SEP, @path);
@@ -722,7 +722,7 @@ sub Get_File
     return;
   }
 
-  $finished_file = &Rel_To_Abs_Path_Local($file);
+  $finished_file = Rel_To_Abs_Path_Local($file);
   $data_file = $finished_file . $hlc->data_fork_extension();
   $rsrc_file = $finished_file . $hlc->rsrc_fork_extension();
 
@@ -845,7 +845,7 @@ sub Put_File
   my($file, $task, $ref, $size, $remote_path, $check_file, $files, 
      $resume, $replace, $rflt, @path);
 
-  @path = &Rel_To_Abs_Path_Local($path);
+  @path = Rel_To_Abs_Path_Local($path);
   $file = $path[$#path];
   $remote_path = "$RPWD:$file";
 
@@ -937,8 +937,8 @@ sub Put_Files
 
   $save_path = $path;
 
-  @path = &Rel_To_Abs_Path_Local($path);
-  $check_path = &Rel_To_Abs_Path_Local($path);
+  @path = Rel_To_Abs_Path_Local($path);
+  $check_path = Rel_To_Abs_Path_Local($path);
 
   if(-d $check_path)
   {
@@ -952,13 +952,13 @@ sub Put_Files
     $dir = $check_path;
     $regex = '*';
 
-    unless(&Make_Dir($hlc, $path[$#path]))
+    unless(Make_Dir($hlc, $path[$#path]))
     {
       print_wrap "mput aborted.\n";
       return(0);
     }
 
-    unless(&Change_Dir_Remote($hlc, $path[$#path]))
+    unless(Change_Dir_Remote($hlc, $path[$#path]))
     {
       print_wrap "mput aborted.\n";
       return(0);
@@ -972,9 +972,9 @@ sub Put_Files
     $regex = $path[$#path];
   }
 
-  $regex = &Shell_RE_To_Perl_RE($regex);
+  $regex = Shell_RE_To_Perl_RE($regex);
 
-  unless(&Safe_Regex(\$regex))
+  unless(Safe_Regex(\$regex))
   {
     $regex = quotemeta($regex);
   }
@@ -1014,7 +1014,7 @@ sub Put_Files
       }
     }
 
-    unless(&Put_File($hlc, "$dir$LOCAL_SEP$file"))
+    unless(Put_File($hlc, "$dir$LOCAL_SEP$file"))
     {
       if($PROMPTING)
       {  
@@ -1028,7 +1028,7 @@ sub Put_Files
 
   if($cd_backone)
   {
-    &Change_Dir_Remote($hlc, '..');
+    Change_Dir_Remote($hlc, '..');
   }
 
   unless($found)
@@ -1054,7 +1054,7 @@ sub Get_Files
 
   $save_path = $path;
 
-  @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+  @path = Rel_To_Abs_Path_Remote(Convert_Path(Clean_Path($path)));
   $path = join($REMOTE_SEP, @path);
 
   if(length($path))
@@ -1092,9 +1092,9 @@ sub Get_Files
 
   if(defined($regex))
   {
-    $regex = &Shell_RE_To_Perl_RE($regex);
+    $regex = Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex(\$regex))
+    unless(Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1133,9 +1133,9 @@ sub Get_Files
       }
     }
 
-    $file_path = &Rel_To_Abs_Path_Remote($name, $file_dir);
+    $file_path = Rel_To_Abs_Path_Remote($name, $file_dir);
 
-    unless(&Get_File($hlc, $file_path, 'absolute'))
+    unless(Get_File($hlc, $file_path, 'absolute'))
     {
       if($PROMPTING)
       {  
@@ -1186,7 +1186,7 @@ sub Get_Info
 
   my($name, @path, $info);
 
-  @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+  @path = Rel_To_Abs_Path_Remote(Convert_Path(Clean_Path($path)));
   $path = join($REMOTE_SEP, @path);
   $name = $path[$#path];
 
@@ -1200,15 +1200,15 @@ sub Get_Info
 
   my($size, $units, $comments);
 
-  ($size, $units) = &Size_Units($info->size());
+  ($size, $units) = Size_Units($info->size());
 
   print_wrap "\n",
              "Name:     ", $info->name(), "\n",
              "Size:     $size $units\n",
              "Type:     ", $info->type(), "\n",
              "Creator:  ", $info->creator(), "\n",
-             "Created:  ", &Date_Text($info->ctime()), "\n",
-             "Modified: ", &Date_Text($info->mtime()), "\n";
+             "Created:  ", Date_Text($info->ctime()), "\n",
+             "Modified: ", Date_Text($info->mtime()), "\n";
 
   $comments = $info->comment();
 
@@ -1234,7 +1234,7 @@ sub Make_Dir
 
   my($name, @path);
 
-  @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+  @path = Rel_To_Abs_Path_Remote(Convert_Path(Clean_Path($path)));
   $path = join($REMOTE_SEP, @path);
   $name = $path[$#path];
 
@@ -1262,7 +1262,7 @@ sub Delete_File
   my($folder, $name, @path, $res, $info, $regex, $save_path,
      $file_path, $file_dir, $found, $files);
 
-  @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+  @path = Rel_To_Abs_Path_Remote(Convert_Path(Clean_Path($path)));
   $path = join($REMOTE_SEP, @path);
   $name = $path[$#path];
 
@@ -1310,9 +1310,9 @@ sub Delete_File
 
   if(defined($regex))
   {
-    $regex = &Shell_RE_To_Perl_RE($regex);
+    $regex = Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex(\$regex))
+    unless(Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1362,7 +1362,7 @@ sub Delete_File
       }
     }
 
-    $file_path = &Rel_To_Abs_Path_Remote($name, $file_dir);
+    $file_path = Rel_To_Abs_Path_Remote($name, $file_dir);
 
     unless($hlc->delete_file($file_path))
     {
@@ -1466,7 +1466,7 @@ sub Change_Dir_Local
 {
   my($hlc, $path) = @_;
 
-  $path = &Rel_To_Abs_Path_Local($path);
+  $path = Rel_To_Abs_Path_Local($path);
 
   unless(chdir($path))
   {
@@ -1496,10 +1496,10 @@ sub Change_Dir_Remote
   }
   else
   {
-    my($abs) = ($path =~ m{(?:|/)});
+    my($abs) = ($path =~ m{^[:/]});
 
-    $path = &Convert_Path(&Clean_Path($path));
-    $path = &Rel_To_Abs_Path_Remote($path)  unless($abs);
+    $path = Convert_Path(Clean_Path($path));
+    $path = Rel_To_Abs_Path_Remote($path)  unless($abs);
 
     if(length($path))
     {
@@ -1536,7 +1536,7 @@ sub List
 
   $save_path = $path;
 
-  @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+  @path = Rel_To_Abs_Path_Remote(Convert_Path(Clean_Path($path)));
   $path = join($REMOTE_SEP, @path);
 
   if(length($path))
@@ -1569,9 +1569,9 @@ sub List
 
   if(defined($regex))
   {
-    $regex = &Shell_RE_To_Perl_RE($regex);
+    $regex = Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex(\$regex))
+    unless(Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1687,7 +1687,7 @@ sub List_Local
 
   $save_path = $path;
 
-  @path = &Rel_To_Abs_Path_Local($path);
+  @path = Rel_To_Abs_Path_Local($path);
   $path = join($LOCAL_SEP, @path);
 
   $path .= $LOCAL_SEP  if($MACOS);
@@ -1713,9 +1713,9 @@ sub List_Local
 
   if(defined($regex))
   {
-    $regex = &Shell_RE_To_Perl_RE($regex);
+    $regex = Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex(\$regex))
+    unless(Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1761,7 +1761,7 @@ sub List_Local
       }
       else
       {
-        ($size, $units) = &Size_Units($size);
+        ($size, $units) = Size_Units($size);
 
         if($MACOS)
         {

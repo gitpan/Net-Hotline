@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.74';
+$VERSION = '0.75';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -4218,7 +4218,7 @@ sub tracker_list
 
   my($tracker, $tracker_address, $server, $port, @servers, $data,
      $num_servers, $length, $tli_ip, $tli_port, $tli_num_users,
-     $tli_name, $tli_desc);
+     $tli_name, $tli_desc, $byte1);
 
   $tracker_address = $self->{'TRACKER_ADDR'};
 
@@ -4279,26 +4279,38 @@ sub tracker_list
   # ^^^^^^^^^^^  ^^^^^ ^^^^^  | ^^^^^^^^^^^  ^^^^^ ^^^^^
   # ???????????    |   ?????  | IP Address   Port  num users ...
   #              num servers  |
-  _hlc_buffered_read($self, $tracker, \$data, 8) || return; 
+  _hlc_buffered_read($self, $tracker, \$data, 8) || return;
 
   $num_servers = unpack("n", substr($data, 4, 2));
 
+  # Bug fixes here thanks to Les Brown <Les@hotlinecentral.com>
   while(@servers < $num_servers)
   {
-    # 4 bytes for IP, 2 bytes for port, 2 bytes for num users, 2 null
-    # bytes, 1 byte for name len
-    unless(_hlc_buffered_read($self, $tracker, \$data, 4 + 2 + 2 + 2 + 1))
+    # 4 bytes for IP, 2 bytes for port, 2 bytes for num users
+    unless(_hlc_buffered_read($self, $tracker, \$data, 4 + 2 + 2))
     {
       $tracker->close()  if($tracker->opened());
       return  unless(@servers);
       return (wantarray) ? @servers : \@servers;
     }
 
+    # Skip these 8 bytes if the first byte was zero
+    $byte1 = unpack("C", substr($data, 0, 1));
+    next  if($byte1 == 0);
+
     $tli_ip        = join('.', map { unpack("C", $_) } split('', substr($data, 0, 4)));
     $tli_port      = unpack("n", substr($data, 4, 2));
     $tli_num_users = unpack("n", substr($data, 6, 2));
 
-    $length = unpack("C", substr($data, 10, 1));
+    # 2 null bytes, 1 byte for name len
+    unless(_hlc_buffered_read($self, $tracker, \$data, 2 + 1))
+    {
+      $tracker->close()  if($tracker->opened());
+      return  unless(@servers);
+      return (wantarray) ? @servers : \@servers;
+    }
+
+    $length = unpack("C", substr($data, 2, 1));
 
     # $length bytes for name, 1 byte for description length
     unless(_hlc_buffered_read($self, $tracker, \$data, $length + 1))

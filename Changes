@@ -1,4 +1,8 @@
-Revision history for Perl module Net::Hotline
+Revision history for Net::Hotline
+
+0.75 (11.09.1999) - John Siracusa <siracusa@mindspring.com>
+
+    * Bug fix in tracker_list() thanks to Les Brown <Les@hotlinecentral.com>
 
 0.74 (09.06.1999) - John Siracusa <siracusa@mindspring.com>
 
