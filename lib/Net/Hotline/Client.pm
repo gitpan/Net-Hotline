@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.77';
+$VERSION = '0.78';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -3452,10 +3452,11 @@ sub send_file
 {
   my($self, $task, $ref, $size, $resume) = @_;
 
-  my($server, $data, $xfer, $length, $buf_size);
+  my($server, $port, $data, $xfer, $length, $buf_size);
   my($local_sep, $remote_sep, $filename, $src_path, $dest_path);
   my($type, $creator, $created, $modified, $finder_flags,  $comments,
-     $data_fh, $rsrc_fh, $data_len, $rsrc_len, $data_pos, $rsrc_pos, $res_fd);
+     $data_fh, $rsrc_fh, $data_len, $rsrc_len, $data_pos, $rsrc_pos,
+     $res_fd);
 
   $task->finish(undef);
 
@@ -3563,12 +3564,15 @@ sub send_file
     $modified += HTLC_UNIX_TO_MACOS_TIME;
   }
 
-  $server = $self->{'SERVER_ADDR'};
-
   $data = HTXF_MAGIC . pack("NNx4", $ref, ($length - $rsrc_pos - $data_pos));
 
+  $server = $self->{'SERVER_ADDR'};
+
+  # HTXF_TCPPORT only if server port is 5500
+  $port = $self->{'SERVER_PORT'} + 1; 
+
   unless($xfer = IO::Socket::INET->new(PeerAddr =>$server,
-                                       PeerPort =>HTXF_TCPPORT,
+                                       PeerPort =>$port,
                                        Timeout  =>$self->{'CONNECT_TIMEOUT'},
                                        Proto    =>'tcp'))
   {

@@ -16,9 +16,8 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.77 fixes a private message reply bug and a problem with
-downloading from servers on non-standard ports.  See the "Changes" file for
-more details.
+Version 0.78 fixes a problem with uploading to servers on non-standard
+ports.  See the "Changes" file for more details.
 
 INSTALLATION
 
@@ -33,7 +32,7 @@ Here are a few common variations on that theme:
 * If you don't want to (or can't) install in the system-wide directories,
   you can use PREFIX to install elsewhere.  Example:
 
-	perl Makefile.PL PREFIX=~
+	perl Makefile.PL PREFIX=~/perl
 	make
 	make install
 
