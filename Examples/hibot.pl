@@ -12,8 +12,6 @@
 ## Modified: July 19th, 1998
 ##
 
-use lib '/home/alumni/macintsh/Lib';
-
 use IO::File;
 use Net::Hotline::Client;
 use Net::Hotline::Constants qw(HTLC_MACOS_TO_UNIX_TIME);

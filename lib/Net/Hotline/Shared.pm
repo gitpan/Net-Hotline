@@ -16,7 +16,7 @@ require Exporter;
 @EXPORT_OK = qw(_encode _write _read _hexdump _debug _set_blocking);
 %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-$Net::Hotline::Shared::VERSION = '0.60';
+$Net::Hotline::Shared::VERSION = '0.61';
 
 sub _debug
 {

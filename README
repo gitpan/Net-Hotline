@@ -16,8 +16,9 @@ date.
 
 CHANGES
 
-Version 0.60 is the first (nearly) feature-complete release.  See the
-"Changes" file for more details.
+Version 0.60 was the first (nearly) feature-complete release.  It had a
+significant bug in User.pm, and version 0.61 was released a day later.
+See the "Changes" file for more details.
 
 INSTALLATION
 

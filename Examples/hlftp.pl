@@ -12,8 +12,6 @@
 ## Modified: July 20th, 1998
 ##
 
-use lib '/home/alumni/macintsh/Lib';
-
 use Cwd;
 use Text::Wrap;
 use Getopt::Std;

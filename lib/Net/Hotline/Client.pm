@@ -56,7 +56,7 @@ if($^O eq 'MacOS')
 
 use strict;
 
-$Net::Hotline::Client::VERSION = '0.60';
+$Net::Hotline::Client::VERSION = '0.61';
 $Net::Hotline::Client::DEBUG   = 0;
 
 # Macbinary CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)

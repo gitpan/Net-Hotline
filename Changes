@@ -1,5 +1,9 @@
 Revision history for Perl module Net::Hotline
 
+0.61 (07.21.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Fixed missing argument to substr() in User.pm (doh!)
+
 0.60 (07.20.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Added file upload.

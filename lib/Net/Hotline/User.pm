@@ -6,7 +6,7 @@ package Net::Hotline::User;
 
 use strict;
 
-$Net::Hotline::User::VERSION = '0.60';
+$Net::Hotline::User::VERSION = '0.61';
 
 sub new
 {
@@ -30,7 +30,7 @@ sub new
   }
   elsif(@args == 1)
   {
-    my($nick_len) = unpack("n", substr(6, 2));
+    my($nick_len) = unpack("n", substr($data, 6, 2));
 
     $self =
     {

@@ -6,7 +6,7 @@ package Net::Hotline::Task;
 
 use strict;
 
-$Net::Hotline::Task::VERSION = '0.60';
+$Net::Hotline::Task::VERSION = '0.61';
 
 sub new
 {

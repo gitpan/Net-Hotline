@@ -23,7 +23,7 @@ use Net::Hotline::Constants
 
 use strict;
 
-$Net::Hotline::Protocol::Packet::VERSION = '0.60';
+$Net::Hotline::Protocol::Packet::VERSION = '0.61';
 
 sub new
 {
