@@ -16,10 +16,8 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.68 changes the return values in a few blocking task methods to
-distinguish between error return values and "empty" return values (i.e. empty
-directories), and contains a few efficiency tweaks.  See the "Changes" file
-for more details.
+Version 0.69 fixes a few bugs in the macbinary() method.  See the "Changes"
+file for more details.
 
 INSTALLATION
 
@@ -54,7 +52,7 @@ Here are a few common variations on that theme:
 
           31: require AutoLoader;
           32: @ISA = qw(AutoLoader);
-        1471: __END__
+        1472: __END__
 
   Just add a "#" character to the beginning of those lines.
 

@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.68';
+$VERSION = '0.69';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -4002,16 +4002,16 @@ sub macbinary
   # Offset 082-Byte, zero fill, must be zero for compatibility
 
   # Offset 083-Long Word, Data Fork length (bytes, zero if no Data Fork).
-  substr($macbin_hdr, 83, 4) = pack("L", $data_len);
+  substr($macbin_hdr, 83, 4) = pack("N", $data_len);
 
   # Offset 087-Long Word, Resource Fork length (bytes, zero if no R.F.).
-  substr($macbin_hdr, 87, 4) = pack("L", $rsrc_len);
+  substr($macbin_hdr, 87, 4) = pack("N", $rsrc_len);
 
   # Offset 091-Long Word, File's creation date
-  substr($macbin_hdr, 91, 4) = pack("L", $created);
+  substr($macbin_hdr, 91, 4) = pack("N", $created);
 
   # Offset 095-Long Word, File's "last modified" date.
-  substr($macbin_hdr, 95, 4) = pack("L", $modified);
+  substr($macbin_hdr, 95, 4) = pack("N", $modified);
 
   # Offset 099-Word, length of Get Info comment to be sent after the resource fork
   #            (if implemented, see below).
@@ -4022,7 +4022,7 @@ sub macbinary
   #            uploading a single file must zero this location when sending a
   #            file. Programs that do not unpack/uncompress files when
   #            downloading may ignore this value.
-  substr($macbin_hdr, 116, 4) = pack("L", $data_len + $rsrc_len);
+  substr($macbin_hdr, 116, 4) = pack("N", $data_len + $rsrc_len);
 
   # Offset 120-Word, Length of a secondary header. If this is non-zero,
   #            Skip this many bytes (rounded up to the next multiple of 128)

@@ -8,7 +8,7 @@ use strict;
 
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION %HTLC_COLORS);
 
-$VERSION = '0.68';
+$VERSION = '0.69';
 
 require Exporter;
 @ISA = qw(Exporter);

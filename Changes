@@ -1,5 +1,9 @@
 Revision history for Perl module Net::Hotline
 
+0.69 (11.14.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Fixed bugs in the the pack() formats in the macbinary() method.
+
 0.68 (10.21.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Changed return values in the get_filelist() and get_news() methods
