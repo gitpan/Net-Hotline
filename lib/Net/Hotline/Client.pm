@@ -1,6 +1,6 @@
 package Net::Hotline::Client;
 
-## Copyright(c) 1998-2001 by John C. Siracusa.  All rights reserved.  This
+## Copyright(c) 1998-2002 by John C. Siracusa.  All rights reserved.  This
 ## program is free software; you can redistribute it and/or modify it under
 ## the same terms as Perl itself.
 
@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.80';
+$VERSION = '0.81';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -2245,8 +2245,16 @@ sub _al08_get_file_resume
 
   ($data, $task_num) = _al09_file_action_stub($self, $path, HTLC_HDR_FILE_GET);
 
-  ($data_file = $path) =~ /$remote_sep([^$remote_sep]+)$/;
-  $data_file = "$dest_dir$1";
+  $data_file = $path;
+  
+  if($data_file =~ /$remote_sep([^$remote_sep]+)$/)
+  {
+    $data_file = "$dest_dir$1";
+  }
+  else
+  {
+    $data_file = "$dest_dir$data_file";
+  }
 
   if($self->{'MACOS'})
   {
