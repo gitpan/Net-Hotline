@@ -1,16 +1,18 @@
 #!/usr/local/bin/perl
 
-## Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program
-## is free software; you can redistribute it and/or modify it under the same
-## terms as Perl itself.
+## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## program is free software; you can redistribute it and/or modify it under
+## the same terms as Perl itself.
 
 ##
 ## hlftp.pl - A simple FTP-like hotline client by John Siracusa, created to
 ##            demonstrate the Net::Hotline::Client module's blocking task mode.
 ##
-## Created:  July  10th, 1998
-## Modified: March 27th, 1999
+## Created:  July      10th, 1998
+## Modified: September  6th, 1999
 ##
+
+use strict;
 
 use Cwd;
 use Text::Wrap;
@@ -22,7 +24,9 @@ use Net::Hotline::Constants
   qw(HTXF_PARTIAL_TYPE HTXF_PARTIAL_CREATOR HTLC_MACOS_TO_UNIX_TIME
      HTLC_FOLDER_TYPE HTLC_INFO_FOLDER_TYPE HTLC_INFO_FALIAS_TYPE);
 
-$VERSION = '1.05';
+my $VERSION = '1.06';
+
+my(%OPT, $LPWD, $RPWD, $NICK, $TERM);
 
 getopts('bchn:pquvx', \%OPT);
 
@@ -34,35 +38,34 @@ if($OPT{'v'})
 
 &Usage  if($OPT{'h'});
 
-$MACOS = ($^O eq 'MacOS');
+my $DEF_LOGIN    = 'guest';
+my $DEF_PASSWORD = '';
+my $DEF_SERVER   = undef;
+my $DEF_PORT     = undef;
+my $DEF_ICON     = 410;
 
-$DEF_LOGIN    = 'guest';
-$DEF_PASSWORD = '';
-$DEF_SERVER   = undef;
-$DEF_PORT     = undef;
-$DEF_ICON     = 410;
+my $ICON         = $DEF_ICON;
+my $LOGIN        = $DEF_LOGIN;
 
-$ICON         = $DEF_ICON;
-$LOGIN        = $DEF_LOGIN;
+my $MACOS        = ($^O eq 'MacOS');
 
-$MACOS        = ($^O eq 'MacOS') ? 1 : 0;
-$LOCAL_SEP    = ($MACOS) ? ':' : '/';
-$REMOTE_SEP   = ':';
+my $LOCAL_SEP    = ($MACOS) ? ':' : '/';
+my $REMOTE_SEP   = ':';
 
-$MACBIN_MODE  = ($OPT{'b'} || !$MACOS) ? 1 : 0;
-$CLOBBER_MODE = ($OPT{'c'}) ? 1 : 0;
-$PROMPTING    = 1;
+my $MACBIN_MODE  = ($OPT{'b'} || !$MACOS) ? 1 : 0;
+my $CLOBBER_MODE = ($OPT{'c'}) ? 1 : 0;
+my $PROMPTING    = 1;
 
-$COLS = $ENV{'COLUMNS'} || $ENV{'COLS'} || 80;
+my $COLS = $ENV{'COLUMNS'} || $ENV{'COLS'} || 80;
 $Text::Wrap::columns = $COLS;
 
-$OUT = STDOUT;
+my $OUT = *STDOUT;
 
 $Net::Hotline::Client::DEBUG = 0;
 
-$FOLDER_REGEX = join ('|', HTLC_FOLDER_TYPE, HTLC_INFO_FOLDER_TYPE, HTLC_INFO_FALIAS_TYPE);
+my $FOLDER_REGEX = join ('|', HTLC_FOLDER_TYPE, HTLC_INFO_FOLDER_TYPE, HTLC_INFO_FALIAS_TYPE);
 
-%HELP = (
+my %HELP = (
 'cd'      => 'cd <dir>        Change remote working directory to <dir>',
 'clobber' => 'clobber         Toggle overwrite-when-downloading behavior.',
 'close'   => 'close           Disconnect from the server.',
@@ -90,7 +93,7 @@ $FOLDER_REGEX = join ('|', HTLC_FOLDER_TYPE, HTLC_INFO_FOLDER_TYPE, HTLC_INFO_FA
 'version' => 'version         Show the hlftp version number.',
 'wd'      => 'wd              Show local and remote working directories.');
 
-sub print_wrap;
+sub print_wrap; # Forward declaration
 
 MAIN:
 {
@@ -171,9 +174,9 @@ sub Help
   {
     $cmd = &Shell_RE_To_Perl_RE($cmd);
 
-    if(&Safe_Regex($cmd))
+    if(&Safe_Regex(\$cmd))
     {
-      foreach $hcmd (sort(keys(%HELP)))
+      foreach my $hcmd (sort(keys(%HELP)))
       {
         if($hcmd =~ /^$cmd$/i)
         {
@@ -251,8 +254,11 @@ sub Start_Up
     return($hlc);
   }
 
-  if($OPT{'n'}) { $NICK  = $OPT{'n'} }
-  else          { $NICK  = $login    }
+  unless(length($NICK))
+  {
+    if($OPT{'n'}) { $NICK  = $OPT{'n'} }
+    else          { $NICK  = $login    }
+  }
 
   print_wrap "Logging in as \"$login\"...\n"  unless($OPT{'q'});
 
@@ -270,8 +276,11 @@ sub Start_Up
 
   $LOGIN = $login;
 
-  if($OPT{'n'}) { $NICK  = $OPT{'n'} }
-  else          { $NICK  = $login    }
+  unless(length($NICK))
+  {
+    if($OPT{'n'}) { $NICK  = $OPT{'n'} }
+    else          { $NICK  = $login    }
+  }
 
   if($path =~ m#:|/#)
   {
@@ -338,6 +347,8 @@ sub Reconnect
 {
   my($hlc, $user_pass, $server) = @_;
 
+  my($login, $pass);
+
   if($hlc->connected())
   {
     print_wrap "Closing connection to ", $hlc->server(), "...\n";
@@ -353,8 +364,11 @@ sub Reconnect
     ($login, $pass) = ($DEF_LOGIN, $DEF_PASSWORD);
   }
 
-  if($OPT{'n'}) { $NICK  = $OPT{'n'} }
-  else          { $NICK  = $login    }
+  unless(length($NICK))
+  {
+    if($OPT{'n'}) { $NICK  = $OPT{'n'} }
+    else          { $NICK  = $login    }
+  }
 
   $LOGIN = $login;
   $RPWD = '';
@@ -417,7 +431,7 @@ sub Converse
   my($cmd, $prompt);
 
   $TERM = new Term::ReadLine 'Hotline FTP';
-  $OUT  = $TERM->OUT || STDOUT;
+  $OUT  = $TERM->OUT || *STDOUT;
 
   print $OUT "Welcome to hlftp version $VERSION by John Siracusa\n"
     unless($OPT{'q'} || @ARGV);
@@ -556,7 +570,7 @@ sub Process_Command
     print_wrap "Local  dir: $LPWD\n",
                "Remote dir: ", (length($RPWD)) ? $RPWD : '<root>', "\n";
   }
-  elsif(/^q(uit)?|bye|exit|x$/)
+  elsif(/^(?:q(?:uit)?|bye|exit|x)$/)
   {
     $hlc->disconnect();
     exit;
@@ -855,7 +869,7 @@ sub Put_File
     return;
   }
 
-  foreach $check_file (@{$files})
+  foreach my $check_file (@{$files})
   {
     next unless($check_file->name() eq $file);
 
@@ -912,7 +926,6 @@ sub Put_File
 sub Put_Files
 {
   my($hlc, $path) = @_;
-
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
@@ -920,7 +933,7 @@ sub Put_Files
   }
 
   my(@path, $save_path, $dir, $check_path, $file, $regex, $found,
-     $cd_backone);
+     $cd_backone, $res);
 
   $save_path = $path;
 
@@ -961,7 +974,7 @@ sub Put_Files
 
   $regex = &Shell_RE_To_Perl_RE($regex);
 
-  unless(&Safe_Regex($regex))
+  unless(&Safe_Regex(\$regex))
   {
     $regex = quotemeta($regex);
   }
@@ -1081,7 +1094,7 @@ sub Get_Files
   {
     $regex = &Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex($regex))
+    unless(&Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1098,7 +1111,7 @@ sub Get_Files
     return;
   }
 
-  foreach $file (@{$files})
+  foreach my $file (@{$files})
   {
     $name    = $file->name();
 
@@ -1247,7 +1260,7 @@ sub Delete_File
   }
 
   my($folder, $name, @path, $res, $info, $regex, $save_path,
-     $file_path, $file_dir, $found);
+     $file_path, $file_dir, $found, $files);
 
   @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
   $path = join($REMOTE_SEP, @path);
@@ -1299,7 +1312,7 @@ sub Delete_File
   {
     $regex = &Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex($regex))
+    unless(&Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1316,7 +1329,7 @@ sub Delete_File
     return;
   }
 
-  foreach $file (@{$files})
+  foreach my $file (@{$files})
   {
     $name = $file->name();
 
@@ -1395,7 +1408,7 @@ sub Rel_To_Abs_Path_Local
 
   @dirs = split(/$LOCAL_SEP/, $tmp);
 
-  foreach $dir (@dirs)
+  foreach my $dir (@dirs)
   {
     if($dir eq '..')    { pop(@path)        }
     elsif($dir eq '.')  { next              }
@@ -1438,7 +1451,7 @@ sub Rel_To_Abs_Path_Remote
 
   @dirs = split(/$REMOTE_SEP/, $tmp);
 
-  foreach $dir (@dirs)
+  foreach my $dir (@dirs)
   {
     if($dir eq '..')    { pop(@path)        }
     elsif($dir eq '.')  { next              }
@@ -1477,20 +1490,23 @@ sub Change_Dir_Remote
     return;
   }
 
-  if($path =~ m#:|/#)
+  if($path =~ m#^(?:|/)$#)
   {
     $RPWD = '';
   }
   else
   {
-    $path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+    my($abs) = ($path =~ m{(?:|/)});
+
+    $path = &Convert_Path(&Clean_Path($path));
+    $path = &Rel_To_Abs_Path_Remote($path)  unless($abs);
 
     if(length($path))
     {
       # Check that path exists and is a folder
       my($info) = $hlc->get_fileinfo($path);
 
-      unless($info && $info->type() =~ /^($FOLDER_REGEX)$/)
+      unless($info && $info->type() =~ /^(?:$FOLDER_REGEX)$/)
       {
         print_wrap "No such directory: $path\n";
         return;
@@ -1555,7 +1571,7 @@ sub List
   {
     $regex = &Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex($regex))
+    unless(&Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1581,7 +1597,7 @@ sub List
   {
     my($msg, $name, $size, $bytes, $type, $creator, $units);
 
-    foreach $file (@{$files})
+    foreach my $file (@{$files})
     {
       $name    = $file->name();
 
@@ -1635,7 +1651,7 @@ sub List
 
     $max_length = 0;
 
-    foreach $file (@{$files})
+    foreach my $file (@{$files})
     {
       $name = $file->name();
 
@@ -1699,7 +1715,7 @@ sub List_Local
   {
     $regex = &Shell_RE_To_Perl_RE($regex);
 
-    unless(&Safe_Regex($regex))
+    unless(&Safe_Regex(\$regex))
     {
       $regex = quotemeta($regex);
     }
@@ -1713,9 +1729,9 @@ sub List_Local
 
   if($long)
   {
-    my($file, $size, $is_dir);
+    my($file, $size, $is_dir, $bytes, $units, $type, $creator);
 
-    foreach $file (sort(readdir(DIR)))
+    foreach my $file (sort(readdir(DIR)))
     {
       $save_file = $file;
       $file =~ s/\015//g  if($MACOS);
@@ -1767,7 +1783,7 @@ sub List_Local
   {
     my($max_length, $col_width, $cols, $name, @names, $i, $j);
 
-    foreach $file (sort(readdir(DIR)))
+    foreach my $file (sort(readdir(DIR)))
     {
       $file =~ s/\015//g  if($MACOS);
 

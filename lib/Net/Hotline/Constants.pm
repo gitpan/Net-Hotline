@@ -1,14 +1,14 @@
 package Net::Hotline::Constants;
 
-## Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program
-## is free software; you can redistribute it and/or modify it under the same
-## terms as Perl itself.
+## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## program is free software; you can redistribute it and/or modify it under
+## the same terms as Perl itself.
 
 use strict;
 
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION %HTLC_COLORS);
 
-$VERSION = '0.73';
+$VERSION = '0.74';
 
 require Exporter;
 @ISA = qw(Exporter);
@@ -52,7 +52,7 @@ HTXF_PARTIAL_TYPE HTXF_RESUME_MAGIC HTXF_RFLT_MAGIC HTXF_TCPPORT
 PATH_SEPARATOR SIZEOF_HL_DATA_HDR SIZEOF_HL_FILE_FORK_HDR
 SIZEOF_HL_FILE_LIST_HDR SIZEOF_HL_FILE_UPLOAD_HDR SIZEOF_HL_FILE_XFER_HDR
 SIZEOF_HL_LONG_HDR SIZEOF_HL_PROTO_HDR SIZEOF_HL_SHORT_HDR
-SIZEOF_HL_TASK_FILLER SIZEOF_HL_USER_LIST_HDR);
+SIZEOF_HL_TASK_FILLER SIZEOF_HL_USER_LIST_HDR MACOS_MAX_FILENAME);
 
 %EXPORT_TAGS = ('all' => \@EXPORT_OK);
 
@@ -86,6 +86,7 @@ use constant HTLC_DEFAULT_ICON     => 410;
 use constant HTLC_EWOULDBLOCK      => 2; # Can be anything > 1, really
 
 use constant HTLC_MAX_PATHLEN      => 255;
+use constant MACOS_MAX_FILENAME    => 31;
 
 # Arbitrary unique task type constants
 use constant HTLC_TASK_FILE_DELETE  => 1;

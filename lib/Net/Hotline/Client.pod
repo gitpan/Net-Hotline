@@ -107,7 +107,7 @@ Now, on to the good stuff...
 
 =item connect ADDRESS
 
-Opens a network connection to ADDRESS where ADDRESS is an IP address or
+Opens a network connection to ADDRESS, which can be an IP address or
 hostname optionally followed by a space or a colon and a port number. If no
 port is given, it defaults to 5500 (Hotline standard port)
 
@@ -320,7 +320,9 @@ successfully, or undef if an error occurred.
 =item get_file PATH
 
 Download the file on the server located at PATH to the local directory
-set via C<downloads_dir()>.
+set via C<downloads_dir()>.  In Mac OS, file names longer than 31
+characters are truncated, preserving the filename extension (i.e. ".jpg")
+if possible.
 
 In blocking task mode, returns either an array (in array context) or a
 reference to an array (in scalar context) containing a Net::Hotline::Task
@@ -409,8 +411,7 @@ In blocking task mode, returns 1 on success or undef if an error occurred.
 In event loop mode, returns a task number if the request was sent
 successfully, or undef if an error occurred.
 
-=item macbinary MACBIN_FILE, DATA_FILE, DATA_LEN, RSRC_FILE, RSRC_LEN
-BUF_SIZE, TYPE, CREATOR, COMMENTS, CREATED, MODIFIED, FINDER_FLAGS
+=item macbinary MACBIN_FILE, DATA_FILE, DATA_LEN, RSRC_FILE, RSRC_LEN BUF_SIZE, TYPE, CREATOR, COMMENTS, CREATED, MODIFIED, FINDER_FLAGS
 
 Creates a MacBinary II file at the path designated by MACBIN_FILE based on
 the file paths and other information supplied as arguments (see the
@@ -1251,6 +1252,6 @@ John C. Siracusa (siracusa@mindspring.com)
 
 =head1 COPYRIGHT
 
-Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program is
+Copyright(c) 1999 by John C. Siracusa.  All rights reserved.  This program is
 free software; you can redistribute it and/or modify it under the same terms
 as Perl itself.

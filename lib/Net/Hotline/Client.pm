@@ -1,8 +1,8 @@
 package Net::Hotline::Client;
 
-## Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program
-## is free software; you can redistribute it and/or modify it under the same
-## terms as Perl itself.
+## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## program is free software; you can redistribute it and/or modify it under
+## the same terms as Perl itself.
 
 use strict;
 
@@ -28,17 +28,16 @@ if($^O eq 'MacOS') # "#ifdef", where have you gone...
   require Mac::Files;
 }
 
-require AutoLoader;
-@ISA = qw(AutoLoader);
+use AutoLoader 'AUTOLOAD';
 
 #
 # Class attributes
 #
 
-$VERSION = '0.73';
+$VERSION = '0.74';
 $DEBUG   = 0;
 
-# CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
+# CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
 # An array useful for CRC calculations that use 0x1021 as the "seed":
 my(@CRC_MAGIC) = (
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
@@ -74,15 +73,6 @@ my(@CRC_MAGIC) = (
     0xEF1F, 0xFF3E, 0xCF5D, 0xDF7C, 0xAF9B, 0xBFBA, 0x8FD9, 0x9FF8,
     0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0
 );
-
-#
-# Forward declarations necessary to compile non-autoloaded code
-#
-
-sub _next_seqnum;
-sub recv_file;
-sub req_news;
-sub req_userlist;
 
 1;
 
@@ -239,7 +229,7 @@ sub event_timing
 
   if(defined($secs))
   {
-    croak "Bad argument to event_timing() - \"$secs\""  if($secs =~ /[^0-9.]/);
+    croak qw(Bad argument to event_timing() - "$secs")  if($secs =~ /[^0-9.]/);
     $self->{'EVENT_TIMING'} = $secs;
   }
 
@@ -257,7 +247,7 @@ sub handlers_during_blocking_tasks
 }
 
 sub last_error  { $_[0]->{'LAST_ERROR'} }
-sub clear_error { $_[0]->{'LAST_ERROR'} = undef; }
+sub clear_error { $_[0]->{'LAST_ERROR'} = undef }
 
 sub xfer_bufsize
 {
@@ -1437,8 +1427,7 @@ sub _hlc_buffered_read
   return($len);
 }
 
-# Macbinary CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
-#
+# Macbinary CRC perl code from Convert::BinHex by Eryq (eryq@enteract.com)
 # (It needs access to the lexical @CRC_MAGIC, so it can't be auto-loaded)
 sub macbin_crc
 {
@@ -1447,9 +1436,7 @@ sub macbin_crc
   my($len) = length($_[0]);
   my($crc) = $_[1];
 
-  my($i);
-
-  for($i = 0; $i < $len; $i++)
+  for(my $i = 0; $i < $len; $i++)
   {
     ($crc ^= (vec($_[0], $i, 8) << 8)) &= 0xFFFF;
     $crc = ($crc << 8) ^ $CRC_MAGIC[$crc >> 8];
@@ -1471,7 +1458,7 @@ sub pchat_action { al07_pchat_action(@_) }
 sub get_file     { al08_get_file(@_)     }
 sub put_file     { al09_put_file(@_)     }
 
-# Internal functons that were also munged up:
+# Internal functions that were also munged up:
 
 # _al01_put_file_resume_now
 # _al02_get_file_resume_now
@@ -3682,11 +3669,29 @@ sub recv_file
 
   ($data_file, $rsrc_file) = @{$task->path()}[1, 2];
 
+  if($self->{'MACOS'})
+  {
+    if(length($data_file) > MACOS_MAX_FILENAME)
+    {
+      for($data_file)
+      {
+        my($len) = MACOS_MAX_FILENAME - 6;
+        
+        # Try to preserve filename extension, if any
+        # ("\xC9" is "..." in Mac OS)
+        # Otherwise, just truncate
+        s/^(.{$len}).*?\.(\w{1,4})/$1\xC9.$2/o ||
+        s/^(.@{[MACOS_MAX_FILENAME]}).*/$1/;
+      }
+    }
+  }
+
   unless($data_fh->open(">>$data_file"))
   {
     $task->error(1);
     $task->finish(time());
     $task->error_text("Could not write to $data_file: $!");
+    $self->{'LAST_ERROR'} = $task->error_text();
     return;
   }
 
@@ -3711,6 +3716,7 @@ sub recv_file
       $task->error(1);
       $task->finish(time());
       $task->error_text("Could not write to $rsrc_file: $!");
+      $self->{'LAST_ERROR'} = $task->error_text();
       return;
     }
   }
@@ -3820,6 +3826,7 @@ sub recv_file
   {
     # 4D 41 43 52  00 00 00 00  00 00 00 00  00 00 01 EC  MACR............
     $length = _hlc_buffered_read($self, $xfer, \$data, SIZEOF_HL_FILE_FORK_HDR);
+
     return  unless($length);
     $tot_length -= $length;
 
@@ -3898,7 +3905,12 @@ sub recv_file
 
     # Rename data file to remove the .data part
     ($finished_file = $data_file) =~ s/$self->{'DATA_FORK_EXT'}$//;
-    rename($data_file, $finished_file);
+    unless(rename($data_file, $finished_file))
+    {
+      $task->error_text(qq(Could not rename "$data_file" to "$finished_file": $!));
+      $self->{'LAST_ERROR'} = $task->error_text();
+      return;
+    }
 
     # Return a sigle true value rather than an array of parameters
     # to indicate that you can't call macbinary() if we've already

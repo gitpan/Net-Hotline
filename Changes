@@ -1,5 +1,9 @@
 Revision history for Perl module Net::Hotline
 
+0.74 (09.06.1999) - John Siracusa <siracusa@mindspring.com>
+
+    * Fixed download of files greater than 31 characters in Mac OS.
+
 0.73 (03.27.1999) - John Siracusa <siracusa@mindspring.com>
 
     * Changed signal handline and eval {} blocks slightly.

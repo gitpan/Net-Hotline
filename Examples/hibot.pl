@@ -1,24 +1,31 @@
-#!/usr/local/bin/perl -s
+#!/usr/local/bin/perl
 
-## Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program
-## is free software; you can redistribute it and/or modify it under the same
-## terms as Perl itself.
+## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## program is free software; you can redistribute it and/or modify it under
+## the same terms as Perl itself.
 
 ##
 ## hibot.pl - A simple hotline bot by John Siracusa, created to
 ##            demonstrate the Net::Hotline::Client module's event mode.
 ##
 ## Created:  July 17th, 1998
-## Modified: July 19th, 1998
+## Modified: June  7th, 1999
 ##
 
+use strict;
+
 use IO::File;
+use Getopt::Std;
 use Net::Hotline::Client;
 use Net::Hotline::Constants qw(HTLC_MACOS_TO_UNIX_TIME);
 
-&Usage  if($h);
+my($hlc, %OPT, $SLEEPING, $ICON_SAVE);
 
-$MACOS = ($^O eq 'MacOS');
+getopts('hD', \%OPT);
+
+&Usage  if($OPT{'h'});
+
+my $MACOS = ($^O eq 'MacOS');
 
 ##
 ## Handler prototypes
@@ -34,37 +41,37 @@ sub Join_Handler;
 ## Defaults
 ##
 
-$DEF_ICON       = 410;
-$DEF_LOGIN      = 'guest';
-$DEF_NICK       = 'hibot';
-$DEF_PASSWORD   = '';
+my $DEF_ICON       = 410;
+my $DEF_LOGIN      = 'guest';
+my $DEF_NICK       = 'hibot';
+my $DEF_PASSWORD   = '';
 
 ##
 ## Bot identity
 ##
 
-$BOT_NICK        = 'hibot';
-$BOT_NICK_ABBREV = 'hb';
-$PROPER_BOT_NICK = $BOT_NICK;
+my $BOT_NICK        = 'hibot';
+my $BOT_NICK_ABBREV = 'hb';
+my $PROPER_BOT_NICK = $BOT_NICK;
 
 ##
 ## Misc. settings
 ##
 
-$ABSORB_EVENTS         = -1;    # Don't initially absorb any events
-$SLEEP_IDLE_SECS       = 10;    # Seconds of idle time before sleeping
-$ICON_SLEEP            = -414;  # Sleep icon resource id
+my $ABSORB_EVENTS         = -1;    # Don't initially absorb any events
+my $SLEEP_IDLE_SECS       = 10;    # Seconds of idle time before sleeping
+my $ICON_SLEEP            = -414;  # Sleep icon resource id
 
-@GREETINGS = ('Hello', 'Hi', 'Hey', 'Greetings', 'Howdy');
+my @GREETINGS = qw(Hello Hi Hey Greetings Howdy);
 
-@EIGHTBALL = ("Most likely.", "As I see it, yes.", "It is decidedly so.",
-              "Outlook good.", "My sources say no.", "Outook not so good.",
-              "Concentrate and ask again.", "Yes, definitely.",
-              "Without a doubt.", "Signs point to yes.",
-              "Better not tell you now.", "You may rely on it.",
-              "My reply is no.", "Very doubtful.", "It is certain.",
-              "Ask again later.", "Yes.", "Reply hazy, try again.",
-              "Cannot predict now.", "Don't count on it.");
+my @EIGHTBALL = ("Most likely.", "As I see it, yes.", "It is decidedly so.",
+                 "Outlook good.", "My sources say no.", "Outook not so good.",
+                 "Concentrate and ask again.", "Yes, definitely.",
+                 "Without a doubt.", "Signs point to yes.",
+                 "Better not tell you now.", "You may rely on it.",
+                 "My reply is no.", "Very doubtful.", "It is certain.",
+                 "Ask again later.", "Yes.", "Reply hazy, try again.",
+                 "Cannot predict now.", "Don't count on it.");
 
 ##
 ## Main function
@@ -487,7 +494,7 @@ sub Bye
 # Debuging
 #
 
-sub Debug { print join('', @_)  if($D); }
+sub Debug { print @_  if($OPT{'D'}); }
 
 #
 # Usage message

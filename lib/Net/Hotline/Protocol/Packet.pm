@@ -1,8 +1,8 @@
 package Net::Hotline::Protocol::Packet;
 
-## Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program
-## is free software; you can redistribute it and/or modify it under the same
-## terms as Perl itself.
+## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## program is free software; you can redistribute it and/or modify it under
+## the same terms as Perl itself.
 
 use strict;
 
@@ -26,7 +26,7 @@ use Net::Hotline::Constants
      HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
      HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
-$VERSION = '0.73';
+$VERSION = '0.74';
 
 sub new
 {
@@ -143,7 +143,7 @@ sub read_parse
     else
     {
       # I'm assuming this is a MacPerl bug: sysread() sometimes returns
-      # undefined without setting $!.  I use the "shurg and continue"
+      # undefined without setting $!.  I use the "shrug and continue"
       # method here and just treat it as an idle event.
       return(HTLC_EWOULDBLOCK)  if($^O eq 'MacOS');
 

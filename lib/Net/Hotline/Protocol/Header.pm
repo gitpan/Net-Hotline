@@ -1,14 +1,14 @@
 package Net::Hotline::Protocol::Header;
 
-## Copyright(c) 1998 by John C. Siracusa.  All rights reserved.  This program
-## is free software; you can redistribute it and/or modify it under the same
-## terms as Perl itself.
+## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## program is free software; you can redistribute it and/or modify it under
+## the same terms as Perl itself.
 
 use strict;
 
 use vars qw($VERSION);
 
-$VERSION = '0.73';
+$VERSION = '0.74';
 
 sub new
 {
