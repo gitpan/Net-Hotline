@@ -26,7 +26,7 @@ use Net::Hotline::Constants
      HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
      HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
-$VERSION = '0.65';
+$VERSION = '0.66';
 
 sub new
 {
@@ -350,7 +350,7 @@ sub read_parse
     elsif($atom_type == HTLS_DATA_PCHAT_REF)
     {
       $length -= _read($fh, \$data, $atom_len);
-      
+
       _debug("Private chat ref: ", _hexdump($data));
 
       # Server 1.2.1 gives chat refs in 2 bytes.  Annoying!

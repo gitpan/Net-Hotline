@@ -16,8 +16,9 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.65 adds private chat capability.  See the "Changes" file for more
-details.
+Version 0.66 fixes a typo in one of the pack() templates (yikes!) and
+changes the behavior of the leave_handler() slightly.  See the "Changes"
+file for more details.
 
 INSTALLATION
 

@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.65';
+$VERSION = '0.66';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -576,6 +576,8 @@ sub _process_packet
     {
       my($user) = $self->{'USER_LIST'}->{$packet->{'SOCKET'}};
 
+      delete $self->{'USER_LIST'}->{$packet->{'SOCKET'}};
+
       if($use_handlers)
       {
         if(defined($self->{'HANDLERS'}->{'LEAVE'}))
@@ -587,8 +589,6 @@ sub _process_packet
           print "USER LEFT: ", $user->nick(), "\n";
         }
       }
-
-      delete $self->{'USER_LIST'}->{$packet->{'SOCKET'}};
     }
   }
   elsif($type == HTLS_HDR_TASK)
@@ -3242,14 +3242,14 @@ sub _msg
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n7", 0x0002,                  # Num atoms
+          pack("n6", 0x0002,                  # Num atoms
 
                      HTLC_DATA_SOCKET,        # Atom type
                      0x0002,                  # Atom length
                      $socket,                 # Atom data
 
                      HTLC_DATA_MSG,           # Atom type
-                    length($message)) .       # Atom length
+                     length($message)) .      # Atom length
           $message;                           # Atom data
 
   _debug(_hexdump($data));
