@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.76';
+$VERSION = '0.77';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -89,6 +89,7 @@ sub new
     'NICK'         => undef,
     'LOGIN'        => undef,
     'COLOR'        => undef,
+    'SERVER_PORT'  => undef,
     'SERVER_ADDR'  => undef,
     'TRACKER_ADDR' => undef,
 
@@ -281,8 +282,14 @@ sub rsrc_fork_extension
 }
 
 sub pchats   { $_[0]->{'PCHATS'}      }
-sub server   { $_[0]->{'SERVER_ADDR'} }
 sub userlist { $_[0]->{'USER_LIST'}   }
+
+sub server
+{
+  $_[0]->{'SERVER_ADDR'} .
+    ($_[0]->{'SERVER_PORT'} ne HTLS_TCPPORT) ?
+      ":$_[0]->{'SERVER_PORT'}" : '';
+}
 
 sub connect
 {
@@ -327,10 +334,8 @@ sub connect
 
   $self->{'SERVER'}->autoflush(1);
 
-  $self->{'SERVER_ADDR'} = "$address";
-
-  $self->{'SERVER_ADDR'} .= ":$port"
-    if($port !=  HTLS_TCPPORT);
+  $self->{'SERVER_ADDR'} = $address;
+  $self->{'SERVER_PORT'} = $port;
 
   return(1);
 }
@@ -977,13 +982,20 @@ sub _process_packet
       {
         if(defined($self->{'HANDLERS'}->{'MSG'}))
         {
-          &{$self->{'HANDLERS'}->{'MSG'}}($self, $user, \$packet->{'DATA'});
+          &{$self->{'HANDLERS'}->{'MSG'}}($self, $user, \$packet->{'DATA'}, \$packet->{'REPLY_TO'});
         }
         elsif($self->{'DEFAULT_HANDLERS'})
         {
           print "MSG: ", $user->nick(), "(", 
                          $packet->{'SOCKET'}, ") ", 
-                         $packet->{'DATA'}, "\n";
+                         $packet->{'DATA'};
+
+          if($packet->{'IS_REPLY'})
+          {
+            print " (In reply to: $packet->{'REPLY_TO'}])";
+          }
+
+          print "\n";
         }
       }
     }
@@ -3551,7 +3563,7 @@ sub send_file
     $modified += HTLC_UNIX_TO_MACOS_TIME;
   }
 
-  ($server = $self->{'SERVER_ADDR'}) =~ s/:\d+$//;
+  $server = $self->{'SERVER_ADDR'};
 
   $data = HTXF_MAGIC . pack("NNx4", $ref, ($length - $rsrc_pos - $data_pos));
 
@@ -3657,7 +3669,7 @@ sub recv_file
   my($data_file, $rsrc_file, $type, $creator, $created, $modified,
      $finder_flags,  $comments, $comments_len, $data_fh, $data_len,
      $rsrc_fh, $rsrc_len, $name_len, $real_mac_res_fork, $res_fd,
-     $finished_file);
+     $finished_file, $port);
 
   $tot_length = $size;
 
@@ -3722,12 +3734,15 @@ sub recv_file
 
   $task->finish(undef);
 
-  ($server = $self->{'SERVER_ADDR'}) =~ s/:\d+$//;
+  $server = $self->{'SERVER_ADDR'};
 
   $data = HTXF_MAGIC . pack("Nx8", $ref);
 
+  # HTXF_TCPPORT only if server port is 5500
+  $port = $self->{'SERVER_PORT'} + 1; 
+
   unless($xfer = IO::Socket::INET->new(PeerAddr =>$server,
-                                       PeerPort =>HTXF_TCPPORT,
+                                       PeerPort =>$port,
                                        Timeout  =>$self->{'CONNECT_TIMEOUT'},
                                        Proto    =>'tcp'))
   {

@@ -24,9 +24,9 @@ use Net::Hotline::Constants
      HTLS_DATA_NEWS HTLS_DATA_NEWS_POST HTLS_DATA_NICKNAME
      HTLS_DATA_PCHAT_REF HTLS_DATA_SERVER_MSG HTLS_DATA_SOCKET
      HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
-     HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
+     HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR HTLS_DATA_REPLY HTLS_DATA_IS_REPLY);
 
-$VERSION = '0.76';
+$VERSION = '0.77';
 
 sub new
 {
@@ -63,6 +63,9 @@ sub new
     'HTXF_RFLT'    => undef,
 
     'PCHAT_REF'    => undef,
+
+    'IS_REPLY'     => undef,
+    'REPLY_TO'     => undef,
 
     'TYPE'         => undef
   };
@@ -103,6 +106,9 @@ sub clear
   $self->{'HTXF_RFLT'}    =
 
   $self->{'PCHAT_REF'}    = 
+
+  $self->{'IS_REPLY'}     =
+  $self->{'REPLY_TO'}     =
 
   $self->{'TYPE'} = undef;
 }
@@ -362,6 +368,23 @@ sub read_parse
       {
         $self->{'PCHAT_REF'} = unpack("N", $data);
       }
+    }
+    elsif($atom_type == HTLS_DATA_IS_REPLY)
+    {
+      $length -= _read($fh, \$data, $atom_len);
+
+      _debug("Is reply:\n", _hexdump($data));
+      
+      $self->{'IS_REPLY'} = unpack("n", $data);
+    }
+    elsif($atom_type == HTLS_DATA_REPLY)
+    {
+      $length -= _read($fh, \$data, $atom_len);
+
+      _debug("In reply to:\n", _hexdump($data));
+
+      $data =~ s/@{[HTLC_NEWLINE]}/\n/osg;
+      $self->{'REPLY_TO'} = $data;
     }
     elsif($atom_type == HTLS_DATA_MSG           ||
           $atom_type == HTLS_DATA_NEWS          ||

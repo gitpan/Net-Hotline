@@ -1,5 +1,13 @@
 Revision history for Net::Hotline
 
+0.77 (02.06.2000) - John Siracusa <siracusa@mindspring.com>
+
+    * Applied band-aid to private message reply bug when on 1.7.x
+      servers, thanks to <jna@retina.net>
+
+    * Fixed port number when downloading from servers on non-standard
+      (i.e. not 5500) ports.
+
 0.76 (01.03.2000) - John Siracusa <siracusa@mindspring.com>
 
     * Removed redundant timeout parameter in IO::Socket call,

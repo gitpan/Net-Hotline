@@ -985,13 +985,13 @@ A user left the server.
 
     USER        A Net::Hotline::User object.
 
-=item msg_handler CODE (SELF, USER, TEXT, NICK)
+=item msg_handler CODE (SELF, USER, TEXT, REPLY-TO)
 
 A private message arrived.
 
     USER        Reference to the sender's Net::Hotline::User object.
     TEXT        Reference to the message text.
-    NICK        Sender's nickname.
+    REPLY-TO    Reference to the text to which this is a reply (if any)   
 
 =item news_posted_handler CODE (SELF, TEXT)
 
