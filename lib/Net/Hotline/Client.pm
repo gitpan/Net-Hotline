@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.70';
+$VERSION = '0.71';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -119,6 +119,7 @@ sub new
     'HANDLERS'  =>
     {
       'AGREEMENT'     => undef,
+      'BAN'           => undef,
       'CHAT'          => undef,
       'CHAT_ACTION'   => undef,
       'COLOR'         => undef,
@@ -794,6 +795,20 @@ sub _process_packet
           }
         }
       }
+      elsif($task_type == HTLC_TASK_BAN)
+      {
+        if($use_handlers)
+        {
+          if(defined($self->{'HANDLERS'}->{'BAN'}))
+          {
+            &{$self->{'HANDLERS'}->{'BAN'}}($self, $task);
+          }
+          elsif($self->{'DEFAULT_HANDLERS'})
+          {
+            print "BAN: Task complete.\n";
+          }
+        }
+      }
       elsif($task_type == HTLC_TASK_SET_INFO)
       {
         if($use_handlers)
@@ -1320,6 +1335,7 @@ sub _next_seqnum
 }
 
 sub agreement_handler     { return _handler($_[0], $_[1], 'AGREEMENT')     }
+sub ban_handler           { return _handler($_[0], $_[1], 'BAN')           }
 sub chat_handler          { return _handler($_[0], $_[1], 'CHAT')          }
 sub chat_action_handler   { return _handler($_[0], $_[1], 'CHAT_ACTION')   }
 sub color_handler         { return _handler($_[0], $_[1], 'COLOR')         }
@@ -1453,6 +1469,8 @@ sub user_by_nick { al04_user_by_nick(@_) }
 sub req_userlist { al05_req_userlist(@_) }
 sub req_filelist { al06_req_filelist(@_) }
 sub pchat_action { al07_pchat_action(@_) }
+sub get_file     { al08_get_file(@_)     }
+sub put_file     { al09_put_file(@_)     }
 
 # Internal functons that were also munged up:
 
@@ -1468,6 +1486,7 @@ sub pchat_action { al07_pchat_action(@_) }
 # _al10_post_news_now
 # _al11_pchat_invite_now
 # _al12_pchat_accept_now
+# _al13_comment_now
 
 __END__
 
@@ -1785,7 +1804,7 @@ sub _new_folder
   return _file_action_simple($_[0], $_[1], HTLC_HDR_FILE_MKDIR, HTLC_TASK_FILE_MKDIR, 'NEW FOLDER');
 }
 
-sub put_file
+sub al09_put_file
 {
   my($self, $src_path, $dest_path, $comments) = @_;
 
@@ -2092,7 +2111,7 @@ sub _al06_put_file_resume
   else { return }
 }
 
-sub get_file
+sub al08_get_file
 {
   my($self, $path) = @_;
 
@@ -2645,7 +2664,7 @@ sub comment
 
   if($self->{'BLOCKING_TASKS'})
   {
-    return $self->_comment_now($path, $comments); 
+    return $self->_al13_comment_now($path, $comments); 
   }
   else
   {
@@ -2653,7 +2672,7 @@ sub comment
   }
 }
 
-sub _comment_now
+sub _al13_comment_now
 {
   my($self, $path, $comments) = @_;
 
@@ -3177,6 +3196,88 @@ sub _kick
     _debug("NEW TASK: KICK($socket) - $task_num\n");
     $self->{'TASKS'}->{$task_num} =
       new Net::Hotline::Task($task_num, HTLC_TASK_KICK, time());
+  }
+  else { return }
+}
+
+sub ban
+{
+  my($self, $user_or_socket) = @_;
+
+  if($self->{'BLOCKING_TASKS'})
+  {
+    return $self->_ban_now($user_or_socket); 
+  }
+  else
+  {
+    return $self->_ban($user_or_socket); 
+  }
+}
+
+sub _ban_now
+{
+  my($self, $user_or_socket) = @_;
+
+  my($task, $task_num, $packet);
+
+  $task_num = $self->ban($user_or_socket);
+  $task = $self->{'TASKS'}->{$task_num};
+
+  return  unless($task_num);
+
+  $packet = _blocking_task($self, $task_num);
+
+  if($task->error())
+  {
+    $self->{'LAST_ERROR'} = $task->error_text();
+    return;
+  }
+
+  return(1);
+}
+
+sub _ban
+{
+  my($self, $user_or_socket) = @_;
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened());
+
+  my($socket, $task_num);
+
+  if(ref($user_or_socket)) { $socket = $user_or_socket->socket() }
+  else                     { $socket = $user_or_socket           }
+
+  my($data);
+
+  my($proto_header) = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_USER_KICK);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len(SIZEOF_HL_LONG_HDR + 6);
+  $proto_header->len2($proto_header->len);
+
+  $data = $proto_header->header() .
+          pack("n7", 0x0002,                  # Num atoms
+
+                     HTLC_DATA_SOCKET,        # Atom type
+                     0x0002,                  # Atom length
+                     $socket,                 # Atom data
+
+                     HTLC_DATA_BAN,           # Atom type
+                     0x0002,                  # Atom length
+                     0x0001);                 # Atom data (always 1???)
+
+  _debug(_hexdump($data));
+
+  $task_num = $proto_header->seq();
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    _debug("NEW TASK: BAN($socket) - $task_num\n");
+    $self->{'TASKS'}->{$task_num} =
+      new Net::Hotline::Task($task_num, HTLC_TASK_BAN, time());
   }
   else { return }
 }

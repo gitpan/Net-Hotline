@@ -17,7 +17,7 @@ require Exporter;
 @EXPORT_OK = qw(_encode _write _read _hexdump _debug _set_blocking);
 %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-$VERSION = '0.70';
+$VERSION = '0.71';
 
 sub _debug
 {

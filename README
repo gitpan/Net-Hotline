@@ -16,7 +16,7 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.70 fixes a bug that affected Mac OS file downloads.  See the
+Version 0.71 adds the ban() method and associated handlers.  See the
 "Changes" file for more details.
 
 INSTALLATION
@@ -52,7 +52,7 @@ Here are a few common variations on that theme:
 
           31: require AutoLoader;
           32: @ISA = qw(AutoLoader);
-        1472: __END__
+        1491: __END__
 
   Just add a "#" character to the beginning of those lines.
 

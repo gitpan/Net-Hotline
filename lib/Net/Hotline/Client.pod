@@ -271,6 +271,17 @@ that you have much bigger problems.)
 
 =over 4
 
+=item ban USER
+
+=item ban SOCKET
+
+Bans the user specified by a Net::Hotline::User object or a user socket
+number.
+
+In blocking task mode, returns 1 on success or undef if an error occurred.
+In event loop mode, returns a task number if the request was sent
+successfully, or undef if an error occurred.
+
 =item chat LIST
 
 Sends the text formed by the concatenation of LIST to the server as "chat."
@@ -391,8 +402,8 @@ Sets your icon in the userlist to ICON, where ICON is an icon ID number.
 
 =item kick SOCKET
 
-Disconnects user specified by a Net::Hotline::User object or a user socket
-number.
+Disconnects the user specified by a Net::Hotline::User object or a user
+socket number.
 
 In blocking task mode, returns 1 on success or undef if an error occurred.
 In event loop mode, returns a task number if the request was sent
@@ -868,6 +879,7 @@ references or undef.  Event types are as follows:
 
     Tasks:
 
+    BAN            Ban user task completed.
     FILE_DELETE    A file or folder was deleted.
     FILE_GET       A file download is ready to begin.
     FILE_PUT       A file upload is ready to begin.
@@ -1053,6 +1065,12 @@ A server message arrived.
     TEXT        Reference to the message text.
 
 =head2 TASKS
+
+=item ban_handler CODE (SELF, TASK)
+
+Ban user task completed.
+
+    TASK        A Net::Hotline::Task object.
 
 =item delete_file_handler CODE (SELF, TASK)
 
