@@ -9,11 +9,14 @@ use IO::Handle;
 use POSIX qw(F_GETFL F_SETFL O_NONBLOCK EINTR);
 
 use strict;
-use vars qw(@ISA @EXPORT);
+use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
 
-require   Exporter;
-@ISA    = qw(Exporter);
-@EXPORT = qw(_encode _write _read _hexdump _debug _set_blocking);
+require Exporter;
+@ISA       = qw(Exporter);
+@EXPORT_OK = qw(_encode _write _read _hexdump _debug _set_blocking);
+%EXPORT_TAGS = (all => \@EXPORT_OK);
+
+$Net::Hotline::Shared::VERSION = '0.60';
 
 sub _debug
 {
@@ -42,7 +45,7 @@ sub _encode
 sub _write
 {
   my($fh, $data_ref, $length) = @_;
-  
+
   my($written, $offset);
 
   $offset = 0;

@@ -19,3 +19,7 @@ lib/Net/Hotline/User.pm
 lib/Net/Hotline/User.pod
 lib/Net/Hotline.pm
 lib/Net/Hotline.pod
+Examples/hlftp.pl
+Examples/hibot.pl
+Examples/README
+

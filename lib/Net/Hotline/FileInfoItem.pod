@@ -62,9 +62,13 @@ The file icon given as a four-letter code.
 
 =item mtime NUM
 
+The modification time of the file, given as a Mac OS native time value. 
+Add the constant Net::Hotline::Constants::HTLC_MACOS_TO_UNIX_TIME to it to
+change it to seconds since the Unix epoch.
+
 =item ctime NUM
 
-The modification time of the file, given as a Mac OS native time value. 
+The creation time of the file, given as a Mac OS native time value.
 Add the constant Net::Hotline::Constants::HTLC_MACOS_TO_UNIX_TIME to it to
 change it to seconds since the Unix epoch.
 
@@ -74,14 +78,15 @@ The size of the file in bytes.
 
 =item type TEXT
 
-The file type, given as a four-letter Mac OS type code ("TEXT", "PICT", etc.)
-or Net::Hotline::Constants::HTLC_FOLDER_TYPE for folders.
+The file type, given as a four-letter Mac OS type code ("TEXT", "PICT", etc.),
+Net::Hotline::Constants::HTLC_INFO_FOLDER_TYPE for folders, and
+Net::Hotline::Constants::HTLC_INFO_FALIAS_TYPE for folder aliases.
 
 =back
 
 =head1 AUTHOR
 
-John Siracusa (siracusa@mindspring.com)
+John C. Siracusa (siracusa@mindspring.com)
 
 =head1 COPYRIGHT
 

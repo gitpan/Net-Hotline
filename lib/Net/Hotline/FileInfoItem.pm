@@ -6,6 +6,8 @@ package Net::Hotline::FileInfoItem;
 
 use strict;
 
+$Net::Hotline::FileInfoItem::VERSION = '0.60';
+
 sub new
 {
   my($class) = shift;

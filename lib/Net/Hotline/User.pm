@@ -6,6 +6,8 @@ package Net::Hotline::User;
 
 use strict;
 
+$Net::Hotline::User::VERSION = '0.60';
+
 sub new
 {
   my($class, @args) = @_;

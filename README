@@ -7,10 +7,17 @@ http://www.hotlinesw.com/ for more information.
 
 PREREQUISITES
 
-You'll need to install the IO:: modules (for IO::Socket, etc.) if you
-have an older Perl distribution that didn't include them.  You'll also
-probably want to upgrade to the latest version if your IO:: modules
-are not up to date.
+Net::Hotline has only been tested on perl version 5.004_03 and MacPerl
+5.2.0r4.  It should work fine on any version of Perl 5, however.  You'll
+need to install the IO:: modules (for IO::Socket, etc.) if you have an
+older Perl distribution that didn't include them.  You'll also probably
+want to upgrade to the latest version if your IO:: modules are not up to
+date.
+
+CHANGES
+
+Version 0.60 is the first (nearly) feature-complete release.  See the
+"Changes" file for more details.
 
 INSTALLATION
 
@@ -22,7 +29,7 @@ The standard incantations should work:
 
 Here are a few common variations on that theme:
 
-* If you don't want to or can't install in the system-wide directories,
+* If you don't want to (or can't) install in the system-wide directories,
   you can use PREFIX to install elsewhere.  Example:
 
 	perl Makefile.PL PREFIX=~
@@ -33,13 +40,30 @@ Here are a few common variations on that theme:
   Just look at the error messages and create the directories it says it
   can't find.
 
-* If you're installing on a Mac OS system, the simplest way to get going
-  is to drag the entire contents of the "lib" folder into the "lib" folder
-  in your MacPerl folder.
+* If you're installing on a Mac OS system, simply duplicate the folder
+  hierarchy inside the distribution's "lib" folder in your MacPerl folder.
+  For example, "lib/Net/Hotline/Protocol/Packet.pm" would be copied to
+  "<Your MacPerl Folder>/lib/Net/Hotline/Protocol/Packet.pm"  (You'll have
+  to create any nonexistent folders in the path)
+
+EXAMPLES
+
+There are two example scripts in the "Examples" directory.
+
+1. "hlftp.pl" is a simple command line FTP-like Hotline client included
+   to demonstrate Net::Hotline::Client's "blocking task mode" (read the
+   documentation for an explanation).  Its operation should be familiar
+   to anyone who's used ncftp or the regular Unix ftp client.
+
+2. "hibot.pl" is a very simple Hotline "bot" included to demonstrate
+   Net::Hotline::Client's "event loop mode" (again, RTFM).  It works a
+   lot like hlftp.pl in terms of connecting to servers.  Log the bot
+   onto your local Hotline server an message it with the text "help"
+   for more information.
 
 BUGS, TROUBLESHOOTING, ETC.
 
-Send problems and/or praise to John Siracusa (siracusa@mindspring.com)
+Send problems and/or praise to John C. Siracusa (siracusa@mindspring.com)
 
 COPYRIGHT
 

@@ -6,6 +6,8 @@ package Net::Hotline::Protocol::Header;
 
 use strict;
 
+$Net::Hotline::Protocol::Header::VERSION = '0.60';
+
 sub new
 {
   my($class, $data) = @_;

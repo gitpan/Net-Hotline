@@ -6,6 +6,8 @@ package Net::Hotline::FileListItem;
 
 use strict;
 
+$Net::Hotline::FileListItem::VERSION = '0.60';
+
 sub new
 {
   my($class, $data) = @_;

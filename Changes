@@ -1,10 +1,36 @@
-Revision history for Perl extension Net::Hotline
+Revision history for Perl module Net::Hotline
 
-0.50  (06/23/1998) - John Siracusa <siracusa@mindspring.com>
+0.60 (07.20.1998) - John Siracusa <siracusa@mindspring.com>
 
-    * Initial release.
+    * Added file upload.
 
-0.51  (07/04/1998) - John Siracusa <siracusa@mindspring.com>
+    * Enabled real dual-forked Mac file creation when downloading on
+      Mac OS systems.
+
+    * Blocking task mode introduced, along with a handful of blocking
+      methods.
+
+    * Overhauled error handling to work with the new blocking task mode.
+
+    * Changed the network i/o (again).
+
+    * Kludged up a bunch of function names to prevent AutoLoader from
+      complaining about non-unique 8-letter(!) names.
+
+    * Made a few modules less intrusive with their exporting.
+
+    * Fixed a bug that caused CPAN.pm and other modules that use ExtUtils
+      to find version numbers to die with an eval() error.
+
+    * Changed the README to prevent hapless Mac OS users from overwriting
+      MacPerl's lib/Net/ directory.
+
+    * Included two example scripts: hlftp.pl and hibot.pl
+
+    * In case you're wondering, I don't expect the API to completely
+      stabilize until version 1.0.
+
+0.51 (07.04.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Added file download and MacBinary II conversion.
 
@@ -16,3 +42,7 @@ Revision history for Perl extension Net::Hotline
       gracefully and be robust enough to do file transfers.
 
     * Renamed a bunch of constants in Net::Hotline::Constants.
+
+0.50 (06.23.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Initial release.

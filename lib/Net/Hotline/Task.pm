@@ -6,6 +6,8 @@ package Net::Hotline::Task;
 
 use strict;
 
+$Net::Hotline::Task::VERSION = '0.60';
+
 sub new
 {
   my($class, @args) = @_;
@@ -23,7 +25,8 @@ sub new
       'PATH'    => $args[4],
       'FINISH'  => undef,
       'ERROR'   => undef,
-      'ERRTXT'  => undef
+      'ERRTXT'  => undef,
+      'MISC'    => $args[5],
     };
   }
   else
@@ -37,7 +40,8 @@ sub new
       'START'   => undef,
       'FINISH'  => undef,
       'ERROR'   => undef,
-      'ERRTXT'  => undef
+      'ERRTXT'  => undef,
+      'MISC'    => undef,
     };
   }
 
@@ -91,6 +95,12 @@ sub error_text
 {
   $_[0]->{'ERRTXT'} = $_[1]  if(@_ == 2);
   return $_[0]->{'ERRTXT'};
+}
+
+sub misc
+{
+  $_[0]->{'MISC'} = $_[1]  if(@_ == 2);
+  return $_[0]->{'MISC'};
 }
 
 1;

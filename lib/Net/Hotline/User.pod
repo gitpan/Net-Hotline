@@ -75,7 +75,7 @@ whenthey connect to a Hotline server.
 
 =head1 AUTHOR
 
-John Siracusa (siracusa@mindspring.com)
+John C. Siracusa (siracusa@mindspring.com)
 
 =head1 COPYRIGHT
 

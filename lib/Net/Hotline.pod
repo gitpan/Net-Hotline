@@ -15,7 +15,7 @@ http://www.hotlinesw.com/
 
 =head1 AUTHOR
 
-John Siracusa (siracusa@mindspring.com)
+John C. Siracusa (siracusa@mindspring.com)
 
 =head1 COPYRIGHT
 

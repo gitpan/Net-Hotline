@@ -5,24 +5,25 @@ package Net::Hotline::Protocol::Packet;
 ## terms as Perl itself.
 
 use Carp;
-use POSIX qw(EWOULDBLOCK EAGAIN ECONNABORTED ECONNRESET ENOTCONN);
-
+use POSIX qw(:errno_h);
 use Net::Hotline::User;
-use Net::Hotline::Shared;
 use Net::Hotline::FileListItem;
 use Net::Hotline::Protocol::Header;
+use Net::Hotline::Shared qw(:all);
 use Net::Hotline::Constants
-  qw(HTLC_EWOULDBLOCK HTLC_NEWLINE HTLS_DATA_AGREEMENT HTLS_DATA_CHAT
-     HTLS_DATA_COLOR HTLS_DATA_FILE_COMMENT HTLS_DATA_FILE_CREATOR
-     HTLS_DATA_FILE_CTIME HTLS_DATA_FILE_ICON HTLS_DATA_FILE_LIST
-     HTLS_DATA_FILE_MTIME HTLS_DATA_FILE_NAME HTLS_DATA_FILE_SIZE
-     HTLS_DATA_FILE_TYPE HTLS_DATA_HTXF_REF HTLS_DATA_HTXF_SIZE
-     HTLS_DATA_ICON HTLS_DATA_MSG HTLS_DATA_NEWS HTLS_DATA_NEWS_POST
-     HTLS_DATA_NICKNAME HTLS_DATA_SERVER_MSG HTLS_DATA_SOCKET
-     HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
-     HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
+  qw(HTLC_DATA_RFLT HTLC_EWOULDBLOCK HTLC_NEWLINE HTLS_DATA_AGREEMENT
+     HTLS_DATA_CHAT HTLS_DATA_COLOR HTLS_DATA_FILE_COMMENT
+     HTLS_DATA_FILE_CREATOR HTLS_DATA_FILE_CTIME HTLS_DATA_FILE_ICON
+     HTLS_DATA_FILE_LIST HTLS_DATA_FILE_MTIME HTLS_DATA_FILE_NAME
+     HTLS_DATA_FILE_SIZE HTLS_DATA_FILE_TYPE HTLS_DATA_HTXF_REF
+     HTLS_DATA_HTXF_SIZE HTLS_DATA_ICON HTLS_DATA_MSG HTLS_DATA_NEWS
+     HTLS_DATA_NEWS_POST HTLS_DATA_NICKNAME HTLS_DATA_SERVER_MSG
+     HTLS_DATA_SOCKET HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO
+     HTLS_DATA_USER_LIST HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
 use strict;
+
+$Net::Hotline::Protocol::Packet::VERSION = '0.60';
 
 sub new
 {
@@ -35,14 +36,14 @@ sub new
 
     'USER_LIST'    => undef,
     'FILE_LIST'    => undef,
-    'USER_GETINFO' => undef,
+    'USER_INFO'    => undef,
     'NEWS'         => undef,
 
     'SOCKET'       => undef,
     'ICON'         => undef,
     'COLOR'        => undef,
     'NICK'         => undef,
-    'TASK_ERROR'    => undef,
+    'TASK_ERROR'   => undef,
     'DATA'         => undef,
 
     'FILE_ICON'    => undef,
@@ -56,6 +57,7 @@ sub new
 
     'HTXF_SIZE'    => undef,
     'HTXF_REF'     => undef,
+    'HTXF_RFLT'    => undef,
 
     'TYPE'         => undef
   };
@@ -72,7 +74,7 @@ sub clear
   
   $self->{'USER_LIST'}    =
   $self->{'FILE_LIST'}    =
-  $self->{'USER_GETINFO'} =
+  $self->{'USER_INFO'}    =
   $self->{'NEWS'}         = 
   
   $self->{'SOCKET'}       =
@@ -93,6 +95,7 @@ sub clear
 
   $self->{'HTXF_SIZE'}    =
   $self->{'HTXF_REF'}     =
+  $self->{'HTXF_RFLT'}    =
 
   $self->{'TYPE'} = undef;
 }
@@ -132,7 +135,13 @@ sub read_parse
     }
     else
     {
-      croak("sysread() error($read_err): $!\n");
+      # I'm assuming this is a MacPerl bug: sysread() sometimes returns
+      # undefined without setting $!.  I use the "shurg and continue"
+      # method here and just treat it as an idel event.
+      return(HTLC_EWOULDBLOCK)  if($^O eq 'MacOS');
+
+      # It's fatal on non-Mac OS systems, however.
+      die "sysread() error($read_err): $!\n";
     }
   }
 
@@ -155,6 +164,7 @@ sub read_parse
 
   for(; $atom_count != 0; $atom_count--)
   {
+    # This probably doesn't need to be here anymore, but just to be safe...
     if($length < 4)
     {
       $length -= _read($fh, \$data, $length);
@@ -281,7 +291,14 @@ sub read_parse
 
       _debug("File size:\n", _hexdump($data));
 
-      $self->{'FILE_SIZE'} = unpack("N", $data);
+      if($atom_len == 2) # Grrrrrrr...
+      {
+        $self->{'FILE_SIZE'} = unpack("n", $data);
+      }
+      else
+      {
+        $self->{'FILE_SIZE'} = unpack("N", $data);
+      }
     }
     elsif($atom_type == HTLS_DATA_FILE_NAME)
     {
@@ -338,8 +355,15 @@ sub read_parse
       $length -= _read($fh, \$data, $atom_len);
 
       _debug("HTXF size:\n", _hexdump($data));
-      
-      $self->{'HTXF_SIZE'} = unpack("N", $data);
+
+      if($atom_len == 2)
+      {
+        $self->{'HTXF_SIZE'} = unpack("n", $data);
+      }
+      else
+      {
+        $self->{'HTXF_SIZE'} = unpack("N", $data);
+      }
     }
     elsif($atom_type == HTLS_DATA_HTXF_REF)
     {
@@ -348,6 +372,14 @@ sub read_parse
       _debug("HTXF ref:\n", _hexdump($data));
       
       $self->{'HTXF_REF'} = unpack("N", $data);
+    }
+    elsif($atom_type == HTLC_DATA_RFLT)
+    {
+      $length -= _read($fh, \$data, $atom_len);
+
+      _debug("HTXF RFLT:\n", _hexdump($data));
+      
+      $self->{'HTXF_RFLT'} = $data;
     }
     else
     {
@@ -358,7 +390,7 @@ sub read_parse
     }
   }
 
-  if($length > 0)
+  if($length > 0) # Should not be reached...
   {
     _debug("Left-over length!\n");
 
