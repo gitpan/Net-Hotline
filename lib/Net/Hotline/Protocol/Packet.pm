@@ -4,7 +4,8 @@ package Net::Hotline::Protocol::Packet;
 ## is free software; you can redistribute it and/or modify it under the same
 ## terms as Perl itself.
 
-use POSIX qw(EWOULDBLOCK EAGAIN);
+use Carp;
+use POSIX qw(EWOULDBLOCK EAGAIN ECONNABORTED ECONNRESET ENOTCONN);
 
 use Net::Hotline::User;
 use Net::Hotline::Shared;
@@ -12,13 +13,14 @@ use Net::Hotline::FileListItem;
 use Net::Hotline::Protocol::Header;
 use Net::Hotline::Constants
   qw(HTLC_EWOULDBLOCK HTLC_NEWLINE HTLS_DATA_AGREEMENT HTLS_DATA_CHAT
-     HTLS_DATA_COLOR HTLS_DATA_ICON HTLS_DATA_MSG HTLS_DATA_NEWS
-     HTLS_DATA_NEWSPOST HTLS_DATA_NICKNAME HTLS_DATA_SERVERMSG HTLS_DATA_SOCKET
-     HTLS_DATA_TASKERROR HTLS_DATA_USERINFO HTLS_DATA_USERLIST HTLS_HEADER_TASK
-     SIZEOF_HL_PROTO_HDR HTLS_DATA_FILELISTITEM HTLS_DATA_FILETYPE
-     HTLS_DATA_FILECREATOR HTLS_DATA_FILESIZE HTLS_DATA_FILENAME
-     HTLS_DATA_FILECOMMENT HTLS_DATA_FILEICON HTLS_DATA_FILECTIME
-     HTLS_DATA_FILEMTIME);
+     HTLS_DATA_COLOR HTLS_DATA_FILE_COMMENT HTLS_DATA_FILE_CREATOR
+     HTLS_DATA_FILE_CTIME HTLS_DATA_FILE_ICON HTLS_DATA_FILE_LIST
+     HTLS_DATA_FILE_MTIME HTLS_DATA_FILE_NAME HTLS_DATA_FILE_SIZE
+     HTLS_DATA_FILE_TYPE HTLS_DATA_HTXF_REF HTLS_DATA_HTXF_SIZE
+     HTLS_DATA_ICON HTLS_DATA_MSG HTLS_DATA_NEWS HTLS_DATA_NEWS_POST
+     HTLS_DATA_NICKNAME HTLS_DATA_SERVER_MSG HTLS_DATA_SOCKET
+     HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
+     HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
 use strict;
 
@@ -31,16 +33,16 @@ sub new
   {
     'PROTO_HEADER' => undef,
 
-    'USERLIST'     => undef,
-    'FILELIST'     => undef,
-    'USERINFO'     => undef,
+    'USER_LIST'    => undef,
+    'FILE_LIST'    => undef,
+    'USER_GETINFO' => undef,
     'NEWS'         => undef,
 
     'SOCKET'       => undef,
     'ICON'         => undef,
     'COLOR'        => undef,
     'NICK'         => undef,
-    'TASKERROR'    => undef,
+    'TASK_ERROR'    => undef,
     'DATA'         => undef,
 
     'FILE_ICON'    => undef,
@@ -51,6 +53,9 @@ sub new
     'FILE_COMMENT' => undef,
     'FILE_CTIME'   => undef,
     'FILE_MTIME'   => undef,
+
+    'HTXF_SIZE'    => undef,
+    'HTXF_REF'     => undef,
 
     'TYPE'         => undef
   };
@@ -65,16 +70,16 @@ sub clear
 
   $self->{'PROTO_HEADER'} = 
   
-  $self->{'USERLIST'}     =
-  $self->{'FILELIST'}     =
-  $self->{'USERINFO'}     =
+  $self->{'USER_LIST'}    =
+  $self->{'FILE_LIST'}    =
+  $self->{'USER_GETINFO'} =
   $self->{'NEWS'}         = 
   
   $self->{'SOCKET'}       =
   $self->{'ICON'}         =
   $self->{'COLOR'}        =
   $self->{'NICK'}         = 
-  $self->{'TASKERROR'}    =  
+  $self->{'TASK_ERROR'}   =  
   $self->{'DATA'}         = 
 
   $self->{'FILE_ICON'}    =
@@ -86,6 +91,9 @@ sub clear
   $self->{'FILE_CTIME'}   =
   $self->{'FILE_MTIME'}   =
 
+  $self->{'HTXF_SIZE'}    =
+  $self->{'HTXF_REF'}     =
+
   $self->{'TYPE'} = undef;
 }
 
@@ -96,8 +104,6 @@ sub read_parse
   my($data, $length, $atom_count, $atom_type, $atom_len, $read_err,
      $nick, $socket, $icon, $user_type, $name, $color, $read);
 
-  $blocking = 1  unless(defined($blocking));
-
   $self->clear();
 
   unless($fh->opened())
@@ -106,43 +112,44 @@ sub read_parse
     return(1);
   }
 
-  $read = _read($fh, \$data, SIZEOF_HL_PROTO_HDR);
+  $read = _read($fh, \$data, SIZEOF_HL_PROTO_HDR, $blocking);
   $read_err = 0 + $!; # Get the numerical value of the magical $!
 
-  # EWOULDBLOCK only applies if we're in non-blocking mode, and
-  # $! is only meaningful when sysread() returns undef
-  if(!$blocking && !defined($read) &&
-     ($read_err == EWOULDBLOCK || $read_err == EAGAIN))
+  unless(defined($read) && $read > 0)
   {
-    return(HTLC_EWOULDBLOCK);
-  }
-
-  # Unix Perl: when sysread() returns 0, we've been disconneted
-  # MacPerl: when sysread() returns undef and we're either in
-  # blocking i/o mode or there was some sort of error, we've 
-  # been disconnected.
-  if((defined($read) && $read == 0) ||
-     (!defined($read) && ($blocking || $read_err)))
-  {
-    $self->clear();
-    $self->{'TYPE'} = 'DISCONNECTED';
-    return(1);
+    if($read_err == EWOULDBLOCK || $read_err == EAGAIN)
+    {
+      #_debug("WOULDBLOCK\n");
+      return(HTLC_EWOULDBLOCK);
+    }
+    elsif($read_err == ECONNRESET || $read_err == ECONNABORTED ||
+          $read_err == ENOTCONN)
+    {
+      #_debug("DISCONNECTED\n");
+      $self->clear();
+      $self->{'TYPE'} = 'DISCONNECTED';
+      return(1);
+    }
+    else
+    {
+      croak("sysread() error($read_err): $!\n");
+    }
   }
 
   _debug("Packet data:\n", _hexdump($data));
 
   $self->{'PROTO_HEADER'} = new Net::Hotline::Protocol::Header($data);
 
-  $length = unpack("i", $self->{'PROTO_HEADER'}->len());
-  $self->{'TYPE'} = unpack("i", $self->{'PROTO_HEADER'}->type());
+  $length = unpack("N", $self->{'PROTO_HEADER'}->len());
+  $self->{'TYPE'} = unpack("N", $self->{'PROTO_HEADER'}->type());
 
-  if($self->{'TYPE'} == HTLS_HEADER_TASK)
+  if($self->{'TYPE'} == HTLS_HDR_TASK)
   {
     $self->{'TASK_NUM'} = unpack("N", $self->{'PROTO_HEADER'}->seq());
   }
 
   $length -= _read($fh, \$atom_count, 2);
-  $atom_count = unpack("S", $atom_count);
+  $atom_count = unpack("n", $atom_count);
 
   _debug("Atom count: $atom_count\n");
 
@@ -161,10 +168,10 @@ sub read_parse
     _debug("Atom type:\n",  _hexdump($atom_type));
     _debug("Atom length:\n", _hexdump($atom_len));
 
-    $atom_type = unpack("S", $atom_type);
-    $atom_len = unpack("S", $atom_len);
+    $atom_type = unpack("n", $atom_type);
+    $atom_len = unpack("n", $atom_len);
 
-    if($atom_type == HTLS_DATA_USERLIST)
+    if($atom_type == HTLS_DATA_USER_LIST)
     {
       my($user_data, $user);
 
@@ -177,9 +184,9 @@ sub read_parse
             "Socket: ", $user->socket(), "\n",
             " Color: ", $user->color(), "\n");
 
-      $self->{'USERLIST'}->{$user->socket()} = $user;
+      $self->{'USER_LIST'}->{$user->socket()} = $user;
     }
-    elsif($atom_type == HTLS_DATA_FILELISTITEM)
+    elsif($atom_type == HTLS_DATA_FILE_LIST)
     {
       my($file_data, $file);
 
@@ -192,7 +199,7 @@ sub read_parse
              "   Size: ", $file->size(), "\n",
              "   Name: ", $file->name(), "\n");
 
-      push(@{$self->{'FILELIST'}}, $file);
+      push(@{$self->{'FILE_LIST'}}, $file);
     }
     elsif($atom_type == HTLS_DATA_SOCKET)
     {
@@ -208,7 +215,7 @@ sub read_parse
       }
       else
       {
-        $self->{'SOCKET'} = unpack("S", $socket);
+        $self->{'SOCKET'} = unpack("n", $socket);
       }
     }
     elsif($atom_type == HTLS_DATA_ICON)
@@ -217,7 +224,7 @@ sub read_parse
 
       _debug("Icon: ", _hexdump($icon));
 
-      $self->{'ICON'} = unpack("S", $icon);
+      $self->{'ICON'} = unpack("n", $icon);
     }
     elsif($atom_type == HTLS_DATA_COLOR)
     {
@@ -225,7 +232,7 @@ sub read_parse
 
       _debug("Color: ", _hexdump($color));
 
-      $self->{'COLOR'} = unpack("S", $color);
+      $self->{'COLOR'} = unpack("n", $color);
     }
     elsif($atom_type == HTLS_DATA_NICKNAME)
     {
@@ -235,16 +242,16 @@ sub read_parse
 
       $self->{'NICK'} = $nick;
     }
-    elsif($atom_type == HTLS_DATA_TASKERROR)
+    elsif($atom_type == HTLS_DATA_TASK_ERROR)
     {
       $length -= _read($fh, \$data, $atom_len);
 
       _debug("Task error:\n", _hexdump($data));
 
       $data =~ s/@{[HTLC_NEWLINE]}/\n/osg;
-      $self->{'TASKERROR'} = $data;
+      $self->{'TASK_ERROR'} = $data;
     }
-    elsif($atom_type == HTLS_DATA_FILEICON)
+    elsif($atom_type == HTLS_DATA_FILE_ICON)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -252,7 +259,7 @@ sub read_parse
 
       $self->{'FILE_ICON'} = unpack("n", $data);
     }
-    elsif($atom_type == HTLS_DATA_FILETYPE)
+    elsif($atom_type == HTLS_DATA_FILE_TYPE)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -260,7 +267,7 @@ sub read_parse
 
       $self->{'FILE_TYPE'} = $data;
     }
-    elsif($atom_type == HTLS_DATA_FILECREATOR)
+    elsif($atom_type == HTLS_DATA_FILE_CREATOR)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -268,7 +275,7 @@ sub read_parse
 
       $self->{'FILE_CREATOR'} = $data;
     }
-    elsif($atom_type == HTLS_DATA_FILESIZE)
+    elsif($atom_type == HTLS_DATA_FILE_SIZE)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -276,7 +283,7 @@ sub read_parse
 
       $self->{'FILE_SIZE'} = unpack("N", $data);
     }
-    elsif($atom_type == HTLS_DATA_FILENAME)
+    elsif($atom_type == HTLS_DATA_FILE_NAME)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -284,7 +291,7 @@ sub read_parse
 
       $self->{'FILE_NAME'} = $data;
     }
-    elsif($atom_type == HTLS_DATA_FILECOMMENT)
+    elsif($atom_type == HTLS_DATA_FILE_COMMENT)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -292,7 +299,7 @@ sub read_parse
 
       $self->{'FILE_COMMENT'} = $data;
     }
-    elsif($atom_type == HTLS_DATA_FILECTIME)
+    elsif($atom_type == HTLS_DATA_FILE_CTIME)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -301,7 +308,7 @@ sub read_parse
 
       $self->{'FILE_CTIME'} = unpack("N", $data);
     }
-    elsif($atom_type == HTLS_DATA_FILEMTIME)
+    elsif($atom_type == HTLS_DATA_FILE_MTIME)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -313,11 +320,11 @@ sub read_parse
     elsif($atom_type == HTLS_DATA_MSG       ||
           $atom_type == HTLS_DATA_NEWS      ||
           $atom_type == HTLS_DATA_AGREEMENT ||
-          $atom_type == HTLS_DATA_USERINFO  ||
+          $atom_type == HTLS_DATA_USER_INFO  ||
           $atom_type == HTLS_DATA_CHAT      ||
           $atom_type == HTLS_DATA_MSG       ||
-          $atom_type == HTLS_DATA_SERVERMSG ||
-          $atom_type == HTLS_DATA_NEWSPOST)
+          $atom_type == HTLS_DATA_SERVER_MSG ||
+          $atom_type == HTLS_DATA_NEWS_POST)
     {
       $length -= _read($fh, \$data, $atom_len);
 
@@ -325,6 +332,22 @@ sub read_parse
 
       $data =~ s/@{[HTLC_NEWLINE]}/\n/osg;
       $self->{'DATA'} = $data;
+    }
+    elsif($atom_type == HTLS_DATA_HTXF_SIZE)
+    {
+      $length -= _read($fh, \$data, $atom_len);
+
+      _debug("HTXF size:\n", _hexdump($data));
+      
+      $self->{'HTXF_SIZE'} = unpack("N", $data);
+    }
+    elsif($atom_type == HTLS_DATA_HTXF_REF)
+    {
+      $length -= _read($fh, \$data, $atom_len);
+
+      _debug("HTXF ref:\n", _hexdump($data));
+      
+      $self->{'HTXF_REF'} = unpack("N", $data);
     }
     else
     {

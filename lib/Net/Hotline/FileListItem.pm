@@ -13,17 +13,15 @@ sub new
 
   if(defined($data))
   {
-    my(@bytes) = split('', $data);
-
-    my($name_len) = unpack("L", join('', @bytes[16 .. 19]));
+    my($name_len) = unpack("L", substr($data, 16, 4));
 
     $self =
     {
-      'TYPE'     => join('', @bytes[0 .. 3]),
-      'CREATOR'  => join('', @bytes[4 .. 7]),
-      'SIZE'     => unpack("L", join('', @bytes[8 .. 11])),
-      'UNKNOWN'  => join('', @bytes[12 .. 15]),
-      'NAME'     => join('', @bytes[20 .. (20 + $name_len)])
+      'TYPE'     => substr($data, 0, 4),
+      'CREATOR'  => substr($data, 4, 4),
+      'SIZE'     => unpack("L", substr($data, 8, 4)),
+      'UNKNOWN'  => substr($data, 12, 4),
+      'NAME'     => substr($data, 20, $name_len)
     };
   }
   else

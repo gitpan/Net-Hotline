@@ -4,9 +4,9 @@ package Net::Hotline::Shared;
 ## is free software; you can redistribute it and/or modify it under the same
 ## terms as Perl itself.
 
-use IO;
 use Carp;
-use POSIX qw(F_GETFL F_SETFL O_NONBLOCK);
+use IO::Handle;
+use POSIX qw(F_GETFL F_SETFL O_NONBLOCK EINTR);
 
 use strict;
 use vars qw(@ISA @EXPORT);
@@ -27,17 +27,15 @@ sub _encode
 {
   my($data) = join('', @_);
 
-  my($i, $char, @chars, $enc, $n);
-  
-  @chars = split('', $data);
+  my($i, $len, $enc);
 
-  foreach $char (@chars)
+  $len = length($data);
+
+  for($i = 0; $i < $len; $i++)
   {
-    $n = unpack("c", $char);
-    $n = 255 - $n;
-    $enc .= pack("c", $n);
+    $enc .= pack("c", (255 - unpack("c", substr($data, $i, 1))));
   }
-  
+
   return $enc;
 }
 
@@ -45,26 +43,53 @@ sub _write
 {
   my($fh, $data_ref, $length) = @_;
   
-  my($written, $offset, $orig_len);
-  
+  my($written, $offset);
+
   $offset = 0;
-  $orig_len = $length;
-  
-  while($length) # Handle partial writes
+
+  while($length > 0) # Handle partial writes
   {
     $written = syswrite($fh, $$data_ref, $length, $offset);
-    die "System write error: $!\n"  unless(defined($written));
+    next  if($! == EINTR);
+    croak("System write error: $!\n")  unless(defined($written));
     $length -= $written;
     $offset += $written;
   }
-  
-  return $orig_len;
+
+  return $offset;
 }
 
 sub _read
 {
-  my($fh, $data_ref, $length) = @_;
-  return sysread($fh, $$data_ref, $length);
+  my($fh, $data_ref, $length, $blocking) = @_;
+
+  my($offset)   = 0;
+  my($read)     = 0;
+  
+  $blocking = 1  unless(defined($blocking));
+
+  #_debug("Reading $length...");
+
+  while($length > 0) # Handle partial reads
+  {
+    $read = sysread($fh, $$data_ref, $length, $offset);
+
+    unless(defined($read))
+    {
+      next  if($! == EINTR);
+
+      # Once we read a little bit, we keep readinuntil we get it all
+      # Otherwise, we can return undef and treat it as a WOULDBLOCK
+      if($blocking || $offset > 0)  { next }
+      else                 { return(undef) }
+    }
+
+    $offset   += $read;
+    $length   -= $read;
+  }
+
+  #_debug("read $offset ($length)\n");
+  return($offset);
 }
 
 sub _set_blocking
@@ -98,11 +123,11 @@ sub _hexdump
 {
   my($data) = join('', @_);
 
-  my(@bytes) = split('',$data);
+  my($ret, $hex, $ascii, $len, $i);
 
-  my($ret, $hex, $ascii, $i);
+  $len = length($data);
 
-  for($i = 0; $i <= $#bytes; $i++)
+  for($i = 0; $i < $len; $i++)
   {
     if($i > 0)
     {
@@ -118,11 +143,11 @@ sub _hexdump
       }
     }
 
-    $hex .= sprintf("%02x ", ord($bytes[$i]));
+    $hex .= sprintf("%02x ", ord(substr($data, $i, 1)));
     
-    $ascii .= sprintf("%c",
-                           (ord($bytes[$i]) > 31 and ord($bytes[$i]) < 127) ?
-                             ord($bytes[$i]) : 46);
+    $ascii .= sprintf("%c", (ord(substr($data, $i, 1)) > 31 and
+                             ord(substr($data, $i, 1)) < 127) ?
+                             ord(substr($data, $i, 1)) : 46);
   }
 
   if(length($hex) < 50)
@@ -131,8 +156,8 @@ sub _hexdump
   }
 
   $ret .= "$hex  $ascii\n";
-  
-  $ret;
+
+  return $ret;
 }
 
 1;

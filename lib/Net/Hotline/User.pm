@@ -28,15 +28,14 @@ sub new
   }
   elsif(@args == 1)
   {
-    my(@bytes) = split('', $data);
-    my($nick_len) = unpack("S", join('', @bytes[6 .. 7]));
+    my($nick_len) = unpack("n", substr(6, 2));
 
     $self =
     {
-      'SOCKET'    => unpack("S", join('', @bytes[0 .. 1])),
-      'ICON'      => unpack("S", join('', @bytes[2 .. 3])),
-      'COLOR'     => unpack("S", join('', @bytes[4 .. 5])),
-      'NICK'      => join('', @bytes[8 .. (8 + $nick_len)]),
+      'SOCKET'    => unpack("n", substr($data, 0, 2)),
+      'ICON'      => unpack("n", substr($data, 2, 2)),
+      'COLOR'     => unpack("n", substr($data, 4, 2)),
+      'NICK'      => join('', substr($data, 8, $nick_len)),
       'LOGIN'     => undef,
       'INFO'      => undef
     };

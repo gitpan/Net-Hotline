@@ -13,15 +13,13 @@ sub new
 
   if(defined($data))
   {
-    my(@bytes) = split('', $data);
-
     $self =
     {
-      'TYPE' => join('', @bytes[0 .. 3]),
-      'SEQ'  => join('', @bytes[4 .. 7]),
-      'TASK' => join('', @bytes[8 .. 11]),
-      'LEN'  => join('', @bytes[12 .. 15]),
-      'LEN2' => join('', @bytes[16 .. 19])
+      'TYPE' => substr($data, 0, 4),
+      'SEQ'  => substr($data, 4, 4),
+      'TASK' => substr($data, 8, 4),
+      'LEN'  => substr($data, 12, 4),
+      'LEN2' => substr($data, 16, 4)
     };
   }
   else

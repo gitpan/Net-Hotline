@@ -7,10 +7,10 @@ http://www.hotlinesw.com/ for more information.
 
 PREREQUISITES
 
-You'll need to install the IO:: modules (for IO::Socket, etc.) if you have
-an older Perl distribution that didn't include them.  You'll also probably
-want to upgrade to the latest version if your IO:: modules are not up to
-date.
+You'll need to install the IO:: modules (for IO::Socket, etc.) if you
+have an older Perl distribution that didn't include them.  You'll also
+probably want to upgrade to the latest version if your IO:: modules
+are not up to date.
 
 INSTALLATION
 

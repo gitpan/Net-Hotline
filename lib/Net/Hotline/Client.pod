@@ -35,13 +35,12 @@ Mac and PC versions are available)
 =head1 CAVEATS
 
 The Hotline protocol is not public. (An RFC?  I wish!)  This module was
-developed with the aid of the source code of the Unix "hx" hotline client
-written by Ryan Nielsen, the beginnings of a Java Hotline bot written by
-Gary Wong, and many hours spent staring at hexdumps of network data.  Only
-a limited set of the complete Hotline client functionality is implemented.
-Most notably absent are file transfer and private chat capablities.
-Finally, I'm sure all hell will break loose with the next major revision of
-Hotline.  Such is life.
+developed with the aid of the C source code from the Unix "hx" Hotline
+client written by Ryan Nielsen, the beginnings of a Java Hotline bot
+written by Gary Wong, and many hours spent staring at hexdumps of network
+data. Some features are not yet implemented, the most notable being file
+upload and private chat capabilities.  Finally, I'm sure all hell will break
+loose with the next major revision of Hotline.  Such is life.
 
 =head1 METHODS
 
@@ -69,12 +68,12 @@ if the connection wasn't open to begin with.
 
 =item login PARAMETERS
 
-Logs into a Hotline server opened via connect(), and requests the news and
+Logs into a Hotline server opened via C<connect()>, and requests the news and
 the userlist.  Arguments are in a "named parameter" format, and are
 case-sensitive.  The parameters are:
 
     Nickname  Your nickname (default: guest)
-    Login     Your account name (deafult: guest)
+    Login     Your account name (default: guest)
     Password  Your account password (default: <none>)
     Icon      Your icon number (default: 410, the big red "H")
 
@@ -97,27 +96,43 @@ closed.
 
 =back
 
-=head2 RUNNING
+=head2 SETTINGS
 
 =over 4
 
 =item blocking EXPR
 
-If EXPR evaluates to true, the run() method will use blocking i/o (this
+If EXPR evaluates to true, the C<run()> method will use blocking i/o (this
 is the default).  Otherwise, i/o will be non-blocking.  With blocking
 i/o, the event loop will cycle each time data of any kind comes from the
 server.  This means that your hotline client may spend a lot of its time
 blocked (and therefore unable to do anything interesting) waiting for
 something to happen on the server.  Using non-blocking i/o will cycle
-through the event loop more frequently (see event_timing() below)
+through the event loop more frequently (see C<event_timing()> below)
 regardless of server activity.
 
 =item event_timing SECS
 
 Sets the event loop timing to SECS seconds.  Fractional seconds are
 allowed. The default setting is 1 second.  This option only has an
-effect when non-blocking i/o is being used (see blocking() above).  If
+effect when non-blocking i/o is being used (see C<blocking()> above).  If
 SECS is omitted, it returns the current event timing setting.
+
+=item path_separator CHARACTER
+
+Sets the path separator to CHARACTER if an argument is given (the default
+setting is the Mac OS path separator ":").  Returns the current value of
+the path separator in both cases.  Note that this is the path separator
+used when sending commands to the server and has no bearing on what the
+path separator is on the local system.  You should not need to change this,
+since all current Hotline servers use ":" regardless of the platform
+they're running on.
+
+=item xfer_bufsize BYTES
+
+Sets the file transfer buffer size to BYTES.  Returns the current buffer
+size.  The buffer size defaults to 4096 bytes when creating new
+Net::Hotline::Client objects.
 
 =back
 
@@ -128,12 +143,12 @@ Their status (start time, finish time, error state, etc.) is tracked
 internally by task number.  They return a task number if the request was
 sent successfully, undef otherwise.
 
-chat() is a special case in that it is not treated as a "task" by Hotline.
+C<chat()> is a special case in that it is not treated as a "task" by Hotline.
 (It returns 1 on success instead of a task number)  The actual completion
 of a chat command can only be determined by examining the resulting data
 from the server.  For example, if you chat("hello"), you can look for that
 line of chat in your chat handler.  This is rarely necessary since the
-failure of a chat() command usually means that you have much bigger
+failure of a C<chat()> command usually means that you have much bigger
 problems.
 
 =over 4
@@ -154,9 +169,17 @@ removed.
 
 Deletes the file or folder located at located at PATH.
 
+=item get_file PATH
+
+Download the file located at PATH on the server.
+
+=item get_file_resume
+
+Resume downloading the file located at PATH on the server.
+
 =item icon ICON
 
-Sets your icon in the userlist to ICON, where ICON is an integer.
+Sets your icon in the userlist to ICON, where ICON is an icon ID number.
 
 =item kick USER
 
@@ -165,6 +188,18 @@ Sets your icon in the userlist to ICON, where ICON is an integer.
 Disconnects user specified by a reference to a Net::Hotline::User object
 or a user socket number.
 
+=item macbinary MACBIN_FILE, DATA_FILE, DATA_LEN, RSRC_FILE, RSRC_LEN
+BUF_SIZE, TYPE, CREATOR, COMMENTS, CREATED, MODIFIED, FINDER_FLAGS
+
+Creates a MacBinary II file at the path designated by MACBIN_FILE based on
+the file paths and other information supplied as arguments (see the
+C<recv_file()> method for a description of the other arguments).  If
+MACBIN_FILE is undefined, it defaults to DATA_FILE with ".bin" tacked onto
+the end.  It returns 1 on success, and undef if MACBIN_FILE already exists
+or can't be created, if DATA_LEN is greater than zero and DATA_FILE can't
+be opened, or if RSRC_LEN is greater than zero and RSRC_FILE can't be
+opened.
+
 =item move SRC, DEST
 
 Moves the file or folder located at the path SRC to the directory located
@@ -172,8 +207,8 @@ at the path DEST.  SRC should be the full path to the file or folder you
 want to move, and DEST should be the full path to the B<directory> you want
 to move SRC too.  The file or folder name should only appear in the SRC
 path, never in the DEST path.  As a consequence, renaming files or folders
-must be done through rename() and cannot be rolled into a move() call. 
-Here's an example of a valid call to move():
+must be done through C<rename()> and cannot be rolled into a C<move()> call. 
+Here's an example of a valid call to C<move()>:
 
     $hlc->move("Folder1:file1", "Folder2:");
 
@@ -200,6 +235,41 @@ Sets your nickname in the userlist to TEXT.
 Sends the text formed by the concatenation of LIST to the server as a
 news post.
 
+=item recv_file TASK, REF, SIZE
+
+Starts receiving the file designated by the Net::Hotline::Task object TASK
+created when C<get_file()> was called, and the download reference number
+REF and the size in bytes SIZE supplied to the C<get_file()> handler
+routine. When the download is I<complete>, C<recv_file()> returns either an
+array (in array context) or a reference to an array (in scalar context)
+containing the following values:
+
+    DATA_FILE      Path to the file containing the data fork.
+    DATA_LEN       Length of the data fork.
+    RSRC_FILE      Path to the file containing the Mac resource fork.
+    RSRC_LEN       Length of the resource fork.
+    BUFSIZE        Buffer size that was used during the download.
+    TYPE           Four-letter Mac file type code.
+    CREATOR        Four-letter Mac file creator code.
+    COMMENTS       Mac Finder comments.
+    CREATED        Date created (in Mac time format)
+    MODIFIED       Date modified (in Mac time format)
+    FINDER_FLAGS   Mac finder flags packed in two bytes.
+
+which are typically fed to the C<macbinary()> method to create a single
+MacBinary II file from the resource and data files.  Here's an example of
+typical usage:
+
+    # Inside your get_file() handler subroutine:
+    ...
+    my(@ret) = $hlc->recv_file($task, $ref, $size);
+    $hlc->macbinary("$ret[0].bin", @ret);
+    ...
+
+See C<macbinary()> for more details on its usage.  If either the data fork
+or resource fork is empty, the fork length returned by C<recv_file()> will
+be zero and the file path returned will be undef.
+
 =item rename PATH, NAME
 
 Renames the file or folder located at PATH to NAME.  Note that PATH
@@ -220,8 +290,8 @@ by task number.  All these methods return a task number if the request was
 sent successfully, undef otherwise.
 
 When a tasks completes, the data is stored in the appropriate
-Net::Hotline::Client attribute.  For example, when a req_news() task completes,
-the data is available via the news() method.
+Net::Hotline::Client attribute.  For example, when a C<req_news()> task
+completes, the data is available via the news() method.
 
 =over 4
 
@@ -283,7 +353,7 @@ entire file tree:
 =item last_activity
 
 Returns the time the last packet was received from the server in the
-system's native time() format. (Usually seconds since the Unix epoch.
+system's native C<time()> format. (Usually seconds since the Unix epoch.
 MacPerl is probably the only odd-ball)
 
 =item news
@@ -291,16 +361,10 @@ MacPerl is probably the only odd-ball)
 Returns a reference to an array of news posts, or undef if the news has not
 yet been requested or is empty.
 
-=item path_separator CHARACTER
-
-Sets the path separator to CHARACTER if an argument is given (the default
-setting is the Mac OS path separator ":").  Returns the current value of
-the path separator in both cases.
-
 =item server
 
 Returns the address of the server currently connected to as a hostname or
-IP address , depending on what the actual argument to connect() was.  If
+IP address , depending on what the actual argument to C<connect()> was.  If
 the port connected to is anything other than the "standard" Hotline port
 (5500), then a colon and the port number are tacked onto the end of the
 server name.  If not connected at all, undef is returned.
@@ -308,19 +372,19 @@ server name.  If not connected at all, undef is returned.
 =item userlist
 
 Returns a reference to a hash of Net::Hotline::User objects keyed by socket
-number, or undef if the userlist has not yet been requested.
+number, or undef if the userlist has not yet been received.
 
 =item user_by_nick REGEX
 
 Returns reference(s) to user objects with nicknames matching REGEX, or
 undef if there are no matches.  You will get undef if you try to call this
-method before you have successfully retreived the userlist from the server.  
+method before you have successfully retrieved the userlist from the server.
 REGEX is treated as a case-sensitive anchored regular expression internally
-(i.e. /^REGEX$/).  If your regex matches more than one user's nickname, and
-user_by_nick() was called in array context, an array of references to user
-objects will be returned.  Otherwise, a reference to the first user object
-that matched will be returned (as ordered by socket number, from low to
-high).
+(i.e. C</^REGEX$/>).  If your regex matches more than one user's nickname,
+and C<user_by_nick()> was called in array context, an array of references
+to user objects will be returned. Otherwise, a reference to the first user
+object that matched will be returned (as ordered by socket number, from low
+to high).
 
 =item user_by_socket SOCKET
 
@@ -332,10 +396,10 @@ SOCKET, or undef if there is no user at that socket.
 =head2 HANDLERS
 
 The methods in this section deal with getting and setting the handler
-routines for each kind of event.  If you do not set your own handler for an
-event, the default handler (usually just a print to STDOUT) will be used.  
-You can enable and disable the default handlers with the default_handlers()
-method.  They are enabled by default.
+routines for events and tasks.  If you do not set your own handler for an
+event, the default handler (usually just a print to STDOUT) will be used.
+You can enable and disable the default handlers with the
+C<default_handlers()> method.  They are enabled by default.
 
 =over 4
 
@@ -353,36 +417,37 @@ references or undef.  Event types are as follows:
 
     Events:
 
-    AGREEMENT    User agreement text received.
-    CHAT         New chat appeared.
-    CHAT_ACTION  A new chat "action" appeared.
-    COLOR        A user changed color in the userlist.
-    EVENT        Next cycle in the event loop.
-    ICON         A user changed icon in the userlist.
-    JOIN         A user joined the server.
-    LEAVE        A user left the server.
-    MSG          A private message arrived.
-    NEWS         A news post was made.
-    NICK         A user changed nickname in the userlist.
-    QUIT         The server was shutdown.
-    SERVER_MSG   A server message arrived.
+    AGREEMENT      User agreement text received.
+    CHAT           New chat appeared.
+    CHAT_ACTION    A new chat "action" appeared.
+    COLOR          A user changed color in the userlist.
+    EVENT          Next cycle in the event loop.
+    ICON           A user changed icon in the userlist.
+    JOIN           A user joined the server.
+    LEAVE          A user left the server.
+    MSG            A private message arrived.
+    NEWS           News received.
+    NEWS_POSTED    A news post was made by another user.
+    NICK           A user changed nickname in the userlist.
+    QUIT           The server was shutdown politely.
+    SERVER_MSG     A server message arrived.
 
     Tasks:
 
-    DELETE_FILE  A file or folder was deleted.
-    FILEINFO     File information received.
-    FILELIST     File list received.
-    KICK         Disconnect user task completed.
-    LOGIN        Login task completed.
-    MOVE_FILE    A file or folder was moved.
-    NEW_FOLDER   A new folder was created.
-    POST_NEWS    A news post was made.
-    SEND_MSG     A private message was sent.
-    SERVER_MSG   A server message was received.
-    SET_INFO     File information was set.
-    TASKERROR    A task error ocurred.
-    USERINFO     User information received.
-    USERLIST     User list received.
+    FILE_DELETE    A file or folder was deleted.
+    FILE_GET       A file download is ready to begin.
+    FILE_GET_INFO  File information received.
+    FILE_SET_INFO  File information set.
+    FILE_LIST      File list received.
+    FILE_MKDIR     New folder created.
+    FILE_MOVE      A file or folder was moved.
+    KICK           Disconnect user task completed.
+    LOGIN          Login task completed.
+    NEWS_POST      News post task completed.
+    SEND_MSG       Private message sent.
+    TASK_ERROR     A task error ocurred.
+    USER_GETINFO   User information received.
+    USER_LIST      User list received.
 
 =back
 
@@ -406,7 +471,7 @@ Net::Hotline::Client object.
 
 =over 4
 
-=head2 Events
+=head2 EVENTS
 
 =item agreement_handler CODE (SELF, TEXT)
 
@@ -424,7 +489,7 @@ New chat appeared.
 
 A new chat "action" appeared.
 
-    TEXT        Reference to the chat text.
+    TEXT        Reference to the chat action text.
 
 =item color_handler CODE (SELF, USER, OLD_COLOR, NEW_COLOR)
 
@@ -433,20 +498,23 @@ A user changed color in the userlist.
     USER        Reference to a Net::Hotline::User object.
     OLD_COLOR   The user's previous color.
     NEW_COLOR   The user's new color.
-    
+
 Valid colors:
-    
+
     1    Black  Active normal user.  
     2    Red    Active admin user.
     3    Gray   Inactive normal user.
     4    Pink   Inactive admin user.
+
+The hash C<%Net::Hotline::Constants::HTLC_COLORS> contains color
+number-to-name mappings.
 
 =item event_loop_handler CODE (SELF, IDLE)
 
 Next cycle in the event loop.  Idle events only occur when non-blocking i/o
 is active.
 
-    IDLE        True if the the event is an idle event.
+    IDLE        True if the event is an idle event.
 
 =item icon_handler CODE (SELF, USER, OLD_ICON, NEW_ICON)
 
@@ -476,9 +544,9 @@ A private message arrived.
     TEXT        Reference to the message text.
     NICK        Sender's nickname.
 
-=item news_handler CODE (SELF, TEXT)
+=item news_posted_handler CODE (SELF, TEXT)
 
-A news post was made.
+A news post was made by another user.
 
     TEXT        Reference to the news post text.
 
@@ -492,17 +560,17 @@ A user changed nickname in the userlist.
 
 =item quit_handler CODE (SELF, TEXT)
 
-The server was shutdown.
+The server was shutdown politely.
 
-    TEXT        Reference to shutdown message text, if any.
+    TEXT        Reference to shutdown message text.
 
 =item server_msg_handler CODE (SELF, TEXT)
 
-A server message was received.
+A server message arrived.
 
     TEXT        Reference to the message text.
 
-=head2 Tasks
+=head2 TASKS
 
 =item delete_file_handler CODE (SELF, TASK)
 
@@ -522,6 +590,24 @@ File information received.
 File list received.
 
     TASK        Reference to a Net::Hotline::Task object.
+
+=item get_file_handler CODE (SELF, TASK, REF, SIZE)
+
+A file download is ready to begin.
+
+    TASK        Reference to a Net::Hotline::Task object.
+    REF         Download reference number.
+    SIZE        Size of download.
+
+If you do not set a handler for C<get_file()>, a default handler will be
+used regardless of your C<default_handlers()> setting.  The default handler
+simply does:
+
+    SELF->recv_file(TASK, REF, SIZE);
+
+which initiates the file download and does not return until the download
+has completed.  If you want to download in the background, create your own
+handler routine that calls C<fork()> or something similar.
 
 =item kick_handler CODE (SELF, TASK)
 
@@ -543,25 +629,31 @@ A file or folder was moved.
 
 =item new_folder CODE (SELF, TASK)
 
-A new folder was created.
+New folder created.
+
+    TASK        Reference to a Net::Hotline::Task object.
+
+=item news_handler CODE (SELF, TASK)
+
+The news has arrived and is now available via the C<news()> method.
 
     TASK        Reference to a Net::Hotline::Task object.
 
 =item post_news_handler CODE (SELF, TASK)
 
-A news post was made.
+News post task completed.
 
     TASK        Reference to a Net::Hotline::Task object.
 
 =item send_msg_handler CODE (SELF, TASK)
 
-A private message was sent.
+Private message sent.
 
     TASK        Reference to a Net::Hotline::Task object.
 
-=item set_info_handler CODE (SELF, TASK)
+=item set_file_info_handler CODE (SELF, TASK)
 
-File information was set (this includes both renaming and setting file
+File information set (this includes both renaming and setting file
 comments).
 
     TASK        Reference to a Net::Hotline::Task object.
@@ -580,7 +672,7 @@ User information received.
 
 =item user_list_handler CODE (SELF, TASK)
 
-User list task has completed successfully.
+User list received.
 
     TASK        Reference to a Net::Hotline::Task object.
 
@@ -607,22 +699,21 @@ Returns the Net::Hotline::Client version string.
 
 =item *
 
-Implement user administration features.
+User administration.
 
 =item *
 
-Implement private chat features.
+Private chat.
 
 =item *
 
-Implement file transfer features.
+File upload.
 
 =back
 
 =head1 BUGS
 
-Detection of server crashes, shutdowns, or other abrupt network
-terminations are not handled correctly 100% of the time.
+Send bug reports to siracusa@mindspring.com.
 
 =head1 AUTHOR
 

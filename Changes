@@ -1,4 +1,18 @@
 Revision history for Perl extension Net::Hotline
 
-0.50  Tue Jun 23 04:51:24 1998
-        - Initial release.
+0.50  (06/23/1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Initial release.
+
+0.51  (07/04/1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Added file download and MacBinary II conversion.
+
+    * News handler routines now make sense.
+
+    * Client.pm grew large enough for me to start autoloading stuff.
+
+    * Overhauled network reading routines to handle disconnects more
+      gracefully and be robust enough to do file transfers.
+
+    * Renamed a bunch of constants in Net::Hotline::Constants.
