@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.66';
+$VERSION = '0.67';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -944,6 +944,8 @@ sub _process_packet
   }
   elsif($type == HTLS_HDR_AGREEMENT)
   {
+    $self->{'AGREEMENT'} = $packet->{'DATA'};
+
     if(defined($packet->{'DATA'}))
     {
       if($use_handlers)
