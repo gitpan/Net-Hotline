@@ -1,5 +1,27 @@
 Revision history for Perl module Net::Hotline
 
+0.64 (09.11.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Using the macbinary() method to convert files with no data fork to
+      MacBinary II format now works correctly.
+
+    * Miscellaneous code style changes, mostly involving variable scope
+      and importing.
+
+    * Fixed a path translation bug in the "mput" command in "hlftp.pl"
+
+0.63 (09.09.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Added tracker() and tracker_list() methods.
+
+    * Fixed connection timeouts and tweaked a few error messages.
+
+    * Fixed failure return value in several functions: changed
+      return(undef) to return to ensure correctness regardless
+      of scalar or array context.
+
+    * Squashed minor bugs in hlftp.pl.
+
 0.62 (08.01.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Fixed a bug in the network write routine that caused it to croak

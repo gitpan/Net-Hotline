@@ -5,11 +5,11 @@
 ## terms as Perl itself.
 
 ##
-## hlftp.pl - A simple hotline FTP-like client by John Siracusa, created to
-##            demonstrate the Net::Hotline module's blocking task mode.
+## hlftp.pl - A simple FTP-like hotline client by John Siracusa, created to
+##            demonstrate the Net::Hotline::Client module's blocking task mode.
 ##
-## Created:  July 10th, 1998
-## Modified: July 31st, 1998
+## Created:  July      10th, 1998
+## Modified: September 11th, 1998
 ##
 
 use Cwd;
@@ -22,7 +22,7 @@ use Net::Hotline::Constants
   qw(HTLC_FOLDER_TYPE HTXF_PARTIAL_TYPE HTXF_PARTIAL_CREATOR
      HTLC_MACOS_TO_UNIX_TIME);
 
-$VERSION = '1.01';
+$VERSION = '1.03';
 
 getopts('bchn:pquvx', \%OPT);
 
@@ -356,7 +356,7 @@ sub Reconnect
   unless($hlc->connect($server))
   {
     print_wrap "Connection failed.\n";
-    return(undef);
+    return;
   }
 
   print_wrap "Logging in as \"$login\"...\n"  unless($OPT{'q'});
@@ -369,7 +369,7 @@ sub Reconnect
                      NoUserList => 1))
   {
     print_wrap "Login to $server failed: ", $hlc->last_error(), "\n";
-    return(undef);
+    return;
   }
 
   return(1);
@@ -660,18 +660,26 @@ sub Clobber_Mode
 
 sub Get_File
 {
-  my($hlc, $path) = @_;
+  my($hlc, $path, $absolute) = @_;
 
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my($file, $task, $ref, $size, $data_file, $rsrc_file,
      $finished_file, $resume, $ret, $clobber, @path);
 
-  @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
+  if($absolute)
+  {
+    @path = split($REMOTE_SEP, $path);
+  }
+  else
+  {
+    @path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)))
+  }
+
   $path = join($REMOTE_SEP, @path);
   $file = $path[$#path];
 
@@ -683,13 +691,13 @@ sub Get_File
     unless($info && $info->type() !~ /^Folder($| )/)
     {
       print_wrap "No such file: $path\n";
-      return(undef);
+      return;
     }
   }
   else
   {
     print_wrap "No such file: $path\n";
-    return(undef);
+    return;
   }
 
   $finished_file = &Rel_To_Abs_Path_Local($file);
@@ -720,13 +728,13 @@ sub Get_File
       unless(unlink($finished_file))
       {
         print_wrap "Could not delete $file: $!\n";
-        return(undef);
+        return;
       }
     }
     else
     {
       print_wrap "\"$file\" already exists. Set \"clobber\" to overwrite.\n";
-      return(undef);
+      return;
     }
   }
 
@@ -742,13 +750,13 @@ sub Get_File
       unless(unlink("$finished_file.bin"))
       {
         print_wrap "Could not delete  $file.bin: $!\n";
-        return(undef);
+        return;
       }
     }
     else
     {
       print_wrap "\"$file.bin\" already exists.  Set \"clobber\" to overwrite.\n";
-      return(undef);
+      return;
     }
   }
 
@@ -764,7 +772,7 @@ sub Get_File
   unless($task)
   {
     print_wrap $hlc->last_error(), "\n";
-    return(undef);
+    return;
   }
 
   if($resume)
@@ -781,7 +789,7 @@ sub Get_File
   unless($ret)
   {
     print_wrap "Download failed: ", $hlc->last_error(), "\n";
-    return(undef);
+    return;
   }
 
   if($MACBIN_MODE && ref($ret))
@@ -791,7 +799,7 @@ sub Get_File
     unless($hlc->macbinary(undef, $ret))
     {
       print_wrap "Could not create MacBinary file: ", $hlc->last_error(), "\n";
-      return(undef);
+      return;
     }
 
     # Delete the separate data and resource fork files
@@ -809,7 +817,7 @@ sub Put_File
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my($file, $task, $ref, $size, $remote_path, $check_file, $files, 
@@ -822,13 +830,13 @@ sub Put_File
   unless(-e $path)
   {
     print_wrap "File not found: $path\n";
-    return(undef);
+    return;
   }
 
   if(-d $path)
   {
     print_wrap "Cannot put a directory.  Use \"mput\" instead.\n";
-    return(undef);
+    return;
   }
 
   $files = $hlc->get_filelist($RPWD);
@@ -872,7 +880,7 @@ sub Put_File
   unless($task)
   {
     print_wrap $hlc->last_error(), "\n";
-    return(undef);
+    return;
   }
 
   if($resume)
@@ -887,7 +895,7 @@ sub Put_File
   unless($hlc->send_file($task, $ref, $size, $rflt))
   {
     print_wrap "Upload failed: ", $hlc->last_error(), "\n";
-    return(undef);
+    return;
   }
 
   return(1);
@@ -900,7 +908,7 @@ sub Put_Files
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my(@path, $save_path, $dir, $check_path, $file, $regex, $found,
@@ -1017,7 +1025,7 @@ sub Get_Files
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my(@path, $files, $name, $info, $regex, $save_path, $res,
@@ -1106,7 +1114,7 @@ sub Get_Files
 
     $file_path = &Rel_To_Abs_Path_Remote($name, $file_dir);
 
-    unless(&Get_File($hlc, $file_path))
+    unless(&Get_File($hlc, $file_path, 'absolute'))
     {
       if($PROMPTING)
       {  
@@ -1129,19 +1137,19 @@ sub Nick
 
   if(length($nick))
   {
-    $hlc->nick($nick);
+    $hlc->nick($nick)  if($hlc->connected());
     $NICK = $nick;
 
     return(1);
   }
-  return(undef);
+  return;
 }
 
 sub Icon
 {
   my($hlc, $icon) = @_;
 
-  $hlc->icon($icon);
+  $hlc->icon($icon)  if($hlc->connected());
   $ICON = $icon;
 }
 
@@ -1152,7 +1160,7 @@ sub Get_Info
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my($name, @path, $info);
@@ -1166,7 +1174,7 @@ sub Get_Info
   unless(ref($info))
   {
     print_wrap($hlc->last_error(), "\n");
-    return(undef);
+    return;
   }
 
   my($size, $units, $comments);
@@ -1200,7 +1208,7 @@ sub Make_Dir
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my($name, @path);
@@ -1212,7 +1220,7 @@ sub Make_Dir
   unless($hlc->new_folder($path))
   {
     print_wrap($hlc->last_error(), "\n");
-    return(undef);
+    return;
   }
 
   print_wrap "Folder created: $name\n"  unless($OPT{'q'});
@@ -1227,7 +1235,7 @@ sub Delete_File
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my($folder, $name, @path, $res, $info, $regex, $save_path,
@@ -1271,7 +1279,7 @@ sub Delete_File
     unless($hlc->delete_file($path))
     {
       print_wrap $hlc->last_error(), "\n";
-      return(undef);
+      return;
     }
 
     print_wrap +($folder) ? "Folder" : "File", " deleted: $name\n"  unless($OPT{'q'});
@@ -1415,7 +1423,7 @@ sub Rel_To_Abs_Path_Remote
   }
   else
   {
-    $tmp = $path;
+    ($tmp = $path) =~ s/^$REMOTE_SEP//o;
   }
 
   $tmp =~ s/$REMOTE_SEP+/$REMOTE_SEP/g;
@@ -1458,7 +1466,7 @@ sub Change_Dir_Remote
   unless($hlc->connected())
   {
     print_wrap "Not connected.\n";
-    return(undef);
+    return;
   }
 
   $path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
@@ -1490,7 +1498,7 @@ sub List
   unless($hlc->connected())
   {
     print $OUT "Not connected.\n";
-    return(undef);
+    return;
   }
 
   my(@path, $files, $info, $regex, $save_path);
@@ -1685,7 +1693,7 @@ sub List_Local
   unless(opendir(DIR, $path))
   {
     print_wrap "Could not read directory $path: $!\n";
-    return(undef);
+    return;
   }
 
   if($long)

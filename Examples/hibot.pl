@@ -6,7 +6,7 @@
 
 ##
 ## hibot.pl - A simple hotline bot by John Siracusa, created to
-##            demonstrate the Net::Hotline module's event mode.
+##            demonstrate the Net::Hotline::Client module's event mode.
 ##
 ## Created:  July 17th, 1998
 ## Modified: July 19th, 1998

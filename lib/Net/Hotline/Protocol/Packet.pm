@@ -4,6 +4,10 @@ package Net::Hotline::Protocol::Packet;
 ## is free software; you can redistribute it and/or modify it under the same
 ## terms as Perl itself.
 
+use strict;
+
+use vars qw($VERSION);
+
 use Carp;
 use POSIX qw(:errno_h);
 use Net::Hotline::User;
@@ -21,9 +25,7 @@ use Net::Hotline::Constants
      HTLS_DATA_SOCKET HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO
      HTLS_DATA_USER_LIST HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
-use strict;
-
-$Net::Hotline::Protocol::Packet::VERSION = '0.62';
+$VERSION = '0.64';
 
 sub new
 {
@@ -137,11 +139,17 @@ sub read_parse
     {
       # I'm assuming this is a MacPerl bug: sysread() sometimes returns
       # undefined without setting $!.  I use the "shurg and continue"
-      # method here and just treat it as an idel event.
+      # method here and just treat it as an idle event.
       return(HTLC_EWOULDBLOCK)  if($^O eq 'MacOS');
 
       # It's fatal on non-Mac OS systems, however.
       die "sysread() error($read_err): $!\n";
+
+      # I'm also getting:
+      #
+      #  sysread() error(145): Connection timed out 
+      #
+      # On Solaris.  Hmmmm...
     }
   }
 

@@ -6,7 +6,9 @@ package Net::Hotline::Protocol::Header;
 
 use strict;
 
-$Net::Hotline::Protocol::Header::VERSION = '0.62';
+use vars qw($VERSION);
+
+$VERSION = '0.64';
 
 sub new
 {

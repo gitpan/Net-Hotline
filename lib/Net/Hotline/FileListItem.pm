@@ -6,7 +6,9 @@ package Net::Hotline::FileListItem;
 
 use strict;
 
-$Net::Hotline::FileListItem::VERSION = '0.62';
+use vars qw($VERSION);
+
+$VERSION = '0.64';
 
 sub new
 {

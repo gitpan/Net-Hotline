@@ -4,19 +4,20 @@ package Net::Hotline::Shared;
 ## is free software; you can redistribute it and/or modify it under the same
 ## terms as Perl itself.
 
+use strict;
+
 use Carp;
 use IO::Handle;
 use POSIX qw(F_GETFL F_SETFL O_NONBLOCK EINTR EWOULDBLOCK EAGAIN);
 
-use strict;
-use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
+use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION);
 
 require Exporter;
 @ISA       = qw(Exporter);
 @EXPORT_OK = qw(_encode _write _read _hexdump _debug _set_blocking);
 %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-$Net::Hotline::Shared::VERSION = '0.62';
+$VERSION = '0.64';
 
 sub _debug
 {
@@ -36,7 +37,7 @@ sub _encode
 
   for($i = 0; $i < $len; $i++)
   {
-    $enc .= pack("c", (255 - unpack("c", substr($data, $i, 1))));
+    $enc .= pack("C", (255 - unpack("C", substr($data, $i, 1))));
   }
 
   return $enc;
@@ -88,7 +89,7 @@ sub _read
       # Once we read a little bit, we keep readinuntil we get it all
       # Otherwise, we can return undef and treat it as a WOULDBLOCK
       if($blocking || $offset > 0)  { next }
-      else                 { return(undef) }
+      else                 { return }
     }
 
     $offset   += $read;

@@ -4,64 +4,42 @@ package Net::Hotline::Client;
 ## is free software; you can redistribute it and/or modify it under the same
 ## terms as Perl itself.
 
+use strict;
+
+use vars qw(@ISA $VERSION $DEBUG);
+
 use Carp;
 use IO::File;
 use IO::Socket;
 use Net::Hotline::User;
 use Net::Hotline::Task;
-use AutoLoader 'AUTOLOAD';
 use Net::Hotline::FileListItem;
 use Net::Hotline::FileInfoItem;
+use Net::Hotline::TrackerListItem;
 use Net::Hotline::Protocol::Packet;
 use Net::Hotline::Protocol::Header;
 use Net::Hotline::Shared qw(:all);
-use Net::Hotline::Constants
-  qw(HTLC_CHECKBYTES HTLC_DATA_CHAT HTLC_DATA_DESTDIR HTLC_DATA_DIRECTORY
-     HTLC_DATA_FILE HTLC_DATA_FILE_RENAME HTLC_DATA_HTXF_SIZE
-     HTLC_DATA_ICON HTLC_DATA_LOGIN HTLC_DATA_MSG HTLC_DATA_NICKNAME
-     HTLC_DATA_OPTION HTLC_DATA_PASSWORD HTLC_DATA_RFLT HTLC_DATA_SOCKET
-     HTLC_DEFAULT_ICON HTLC_DEFAULT_LOGIN HTLC_DEFAULT_NICK
-     HTLC_EWOULDBLOCK HTLC_HDR_CHAT HTLC_HDR_FILE_DELETE HTLC_HDR_FILE_GET
-     HTLC_HDR_FILE_GETINFO HTLC_HDR_FILE_LIST HTLC_HDR_FILE_MKDIR
-     HTLC_HDR_FILE_MOVE HTLC_HDR_FILE_PUT HTLC_HDR_FILE_SETINFO
-     HTLC_HDR_LOGIN HTLC_HDR_MSG HTLC_HDR_NEWS_GETFILE HTLC_HDR_NEWS_POST
-     HTLC_HDR_USER_CHANGE HTLC_HDR_USER_GETINFO HTLC_HDR_USER_GETLIST
-     HTLC_HDR_USER_KICK HTLC_MAGIC HTLC_MAGIC_LEN HTLC_MAX_PATHLEN
-     HTLC_NEWLINE HTLC_TASK_FILE_DELETE HTLC_TASK_FILE_GET
-     HTLC_TASK_FILE_INFO HTLC_TASK_FILE_LIST HTLC_TASK_FILE_MKDIR
-     HTLC_TASK_FILE_MOVE HTLC_TASK_FILE_PUT HTLC_TASK_KICK HTLC_TASK_LOGIN
-     HTLC_TASK_NEWS HTLC_TASK_NEWS_POST HTLC_TASK_SEND_MSG
-     HTLC_TASK_SET_INFO HTLC_TASK_USER_INFO HTLC_TASK_USER_LIST
-     HTLC_UNIX_TO_MACOS_TIME HTLS_DATA_FILE_COMMENT HTLS_DATA_NEWS_POST
-     HTLS_HDR_AGREEMENT HTLS_HDR_CHAT HTLS_HDR_MSG HTLS_HDR_NEWS_POST
-     HTLS_HDR_PCHAT_INVITE HTLS_HDR_PCHAT_SUBJECT
-     HTLS_HDR_PCHAT_USER_CHANGE HTLS_HDR_PCHAT_USER_LEAVE
-     HTLS_HDR_POLITE_QUIT HTLS_HDR_TASK HTLS_HDR_USER_CHANGE
-     HTLS_HDR_USER_LEAVE HTLS_MAGIC HTLS_MAGIC_LEN HTLS_TCPPORT
-     HTXF_BUFSIZE HTXF_MAGIC HTXF_PARTIAL_CREATOR HTXF_PARTIAL_TYPE
-     HTXF_RESUME_MAGIC HTXF_RFLT_MAGIC HTXF_TCPPORT PATH_SEPARATOR
-     SIZEOF_HL_FILE_FORK_HDR SIZEOF_HL_FILE_UPLOAD_HDR
-     SIZEOF_HL_FILE_XFER_HDR SIZEOF_HL_LONG_HDR SIZEOF_HL_PROTO_HDR
-     SIZEOF_HL_SHORT_HDR SIZEOF_HL_TASK_FILLER);
+use Net::Hotline::Constants qw(:all);
 
-# Is there a better way to do this?  #ifdef, where have you gone... ;-)
-if($^O eq 'MacOS')
+if($^O eq 'MacOS') # "#ifdef", where have you gone...
 {
   require Mac::MoreFiles;
-  import Mac::MoreFiles;
-
   require Mac::Files;
-  import Mac::Files;
 }
 
-use strict;
+require AutoLoader;
+@ISA = qw(AutoLoader);
 
-$Net::Hotline::Client::VERSION = '0.62';
-$Net::Hotline::Client::DEBUG   = 0;
+#
+# Class attributes
+#
 
-# Macbinary CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
+$VERSION = '0.64';
+$DEBUG   = 0;
+
+# CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
 # An array useful for CRC calculations that use 0x1021 as the "seed":
-my(@MAGIC) = (
+my(@CRC_MAGIC) = (
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
     0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF,
     0x1231, 0x0210, 0x3273, 0x2252, 0x52B5, 0x4294, 0x72F7, 0x62D6,
@@ -114,14 +92,14 @@ sub req_userlist;
 sub new
 {
   my($class) = shift;
-  my($self);
 
-  $self =
+  my($self) =
   {
     'NICK'         => undef,
     'LOGIN'        => undef,
     'COLOR'        => undef,
     'SERVER_ADDR'  => undef,
+    'TRACKER_ADDR' => undef,
 
     'SOCKET'       => undef,
     'BLOCKING'     => 1,
@@ -176,7 +154,7 @@ sub new
 
     'EVENT_TIMING'    => 1,
     'CONNECT_TIMEOUT' => 15,
-    'PATH_SEPARATOR'  => ':',
+    'PATH_SEPARATOR'  => HTLC_PATH_SEPARATOR,
     'HTXF_BUFSIZE'    => HTXF_BUFSIZE,
 
     'DOWNLOADS_DIR'   => undef,
@@ -327,16 +305,32 @@ sub connect
     croak("Bad server address: $server");
   }
 
-  $self->{'SERVER'} = 
-    IO::Socket::INET->new(PeerAddr =>$address,
-                          PeerPort =>$port,
-                          Timeout  =>$self->{'CONNECT_TIMEOUT'},
-                          Proto    =>'tcp');
+  $SIG{'ALRM'} = sub { die "timeout" };
 
-  unless($self->{'SERVER'})
+  eval
   {
-    $self->{'LAST_ERROR'} = $! || 'Connection failed';
-    return(undef);
+    alarm($self->{'CONNECT_TIMEOUT'});
+
+    $self->{'SERVER'} = 
+      IO::Socket::INET->new(PeerAddr =>$address,
+                            PeerPort =>$port,
+                            Timeout  =>$self->{'CONNECT_TIMEOUT'},
+                            Proto    =>'tcp');
+    alarm(0);
+  };
+
+  $SIG{'ALRM'} = 'DEFAULT';
+
+  if($@ =~ /^timeout/)
+  {
+    $self->{'LAST_ERROR'} = "Timed out after $self->{'CONNECT_TIMEOUT'} seconds";
+    return;
+  }
+
+  if(!$self->{'SERVER'} || $@)
+  {
+    $self->{'LAST_ERROR'} = $@ || $! || 'Connection failed';
+    return;
   }
 
   $self->{'SERVER'}->autoflush(1);
@@ -362,7 +356,7 @@ sub disconnect
   }
 
   $self->{'LAST_ERROR'} = 'Not connected.';
-  return(undef);
+  return;
 }
 
 sub login
@@ -393,7 +387,7 @@ sub _login_now
   $task_num = $self->_login(%args);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
@@ -401,7 +395,7 @@ sub _login_now
   {
     $self->{'LAST_ERROR'} = $task->error_text();
     $self->disconnect();
-    return(undef);
+    return;
   }
 
   unless($no_news)
@@ -437,7 +431,7 @@ sub _login
   unless($server->opened())
   {
     $self->{'LAST_ERROR'} = "login() called before connect()";
-    return(undef);
+    return;
   }
 
   $nick  = $args{'Nickname'} || HTLC_DEFAULT_NICK;
@@ -449,14 +443,14 @@ sub _login
   $self->{'LOGIN'} = $login;
   $self->{'ICON'}  = $icon;
 
-  _hlc_write($self, $server, \HTLC_MAGIC, HTLC_MAGIC_LEN) || return(undef);
-  _hlc_read($self, $server, \$response, HTLS_MAGIC_LEN) || return(undef);
+  _hlc_write($self, $server, \HTLC_MAGIC, HTLC_MAGIC_LEN) || return;
+  _hlc_read($self, $server, \$response, HTLS_MAGIC_LEN) || return;
 
   if($response ne HTLS_MAGIC)
   {
     $self->{'LAST_ERROR'} = "Handshake failed.  Not a hotline server?";
     $self->disconnect();
-    return(undef);
+    return;
   }
 
   $enc_login    = _encode($login);
@@ -502,7 +496,7 @@ sub _login
     $self->{'TASKS'}->{$task_num} =
       new Net::Hotline::Task($task_num, HTLC_TASK_LOGIN, time());
   }
-  else { return(undef) }
+  else { return }
 
   unless($args{'NoUserList'})
   {
@@ -524,7 +518,7 @@ sub run
   my($self) = shift;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($ret, $packet);
 
@@ -1229,11 +1223,11 @@ sub _hlc_write
   my($self, $fh, $data_ref, $len) = @_;
 
   return("0-E0")  if($len == 0 || !defined($len));
-
+  
   unless(_write($fh, $data_ref, $len) == $len)
   {
     $self->{'LAST_ERROR'} = "Write error: $!";
-    return(undef);
+    return;
   }
 
   return($len);
@@ -1248,7 +1242,7 @@ sub _hlc_read
   unless(_read($fh, $data_ref, $len) == $len)
   {
     $self->{'LAST_ERROR'} = "Read error: $!";
-    return(undef);
+    return;
   }
 
   return($len);
@@ -1263,10 +1257,30 @@ sub _hlc_buffered_read
   unless(read($fh, $$data_ref, $len) == $len)
   {
     $self->{'LAST_ERROR'} = "Read error: $!";
-    return(undef);
+    return;
   }
 
   return($len);
+}
+
+# Macbinary CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
+#
+# (It needs access to the lexical @CRC_MAGIC, so it can't be auto-loaded)
+sub macbin_crc
+{
+  shift if(ref($_[0]));
+
+  my($len) = length($_[0]);
+  my($crc) = $_[1];
+
+  my($i);
+
+  for($i = 0; $i < $len; $i++)
+  {
+    ($crc ^= (vec($_[0], $i, 8) << 8)) &= 0xFFFF;
+    $crc = ($crc << 8) ^ $CRC_MAGIC[$crc >> 8];
+  }
+  return $crc;
 }
 
 #
@@ -1335,14 +1349,14 @@ sub al01_get_filelist
   $task_num = $self->req_filelist($path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   $path = $task->path();
@@ -1363,7 +1377,7 @@ sub al06_req_filelist
   my($self, $path) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data, $task_num, @path_parts, $data_length, $length, $save_path);
 
@@ -1418,7 +1432,7 @@ sub al06_req_filelist
       }
 
       $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("c", length($path_part)) .# Length
+               pack("C", length($path_part)) .# Length
                $path_part;                    # Path part
     }
   }
@@ -1438,7 +1452,7 @@ sub al06_req_filelist
       new Net::Hotline::Task($task_num, HTLC_TASK_FILE_LIST, time(), undef, $save_path);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub al03_get_userinfo
@@ -1450,14 +1464,14 @@ sub al03_get_userinfo
   $task_num = $self->req_userinfo($socket);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return $self->{'USER_LIST'}->{$task->socket()}->info();
@@ -1468,7 +1482,7 @@ sub req_userinfo
   my($self, $socket) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data, $task_num);
 
@@ -1498,7 +1512,7 @@ sub req_userinfo
       new Net::Hotline::Task($task_num, HTLC_TASK_USER_INFO, time(), $socket);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub al02_get_fileinfo
@@ -1510,14 +1524,14 @@ sub al02_get_fileinfo
   $task_num = $self->req_fileinfo($path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return $self->{'FILE_INFO'};
@@ -1551,14 +1565,14 @@ sub _al03_delete_file_now
   $task_num = $self->_delete_file($path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -1592,14 +1606,14 @@ sub _al04_new_folder_now
   $task_num = $self->_new_folder($path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -1633,14 +1647,14 @@ sub _al05_put_file_now
   $task_num = $self->_put_file($src_path, $dest_path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   $size = ${$task->misc()}[0] + ${$task->misc()}[1];
@@ -1665,7 +1679,7 @@ sub _put_file
   unless(-e $src_path)
   {
     $self->{'LAST_ERROR'} = "File does not exist: $src_path";
-    return(undef);
+    return;
   }
 
   my($local_sep, $remote_sep, $src_file, $data, $task_num, $length,
@@ -1723,7 +1737,7 @@ sub _put_file
     unless($rsrc_fh->fdopen($res_fd, "r"))
     {
       $self->{'LAST_ERROR'} = "Couldn't open Mac resource fork: $@";
-      return(undef);    
+      return;    
     }
 
     $rsrc_fh->seek(0, SEEK_END);    # Fast forward to end
@@ -1765,7 +1779,7 @@ sub _put_file
                                $type, $creator, $length ]);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub put_file_resume
@@ -1791,14 +1805,14 @@ sub _al01_put_file_resume_now
   $task_num = $self->_al06_put_file_resume($src_path, $dest_path, $comments);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   if(wantarray)
@@ -1821,7 +1835,7 @@ sub _al06_put_file_resume
   unless(-e $src_path)
   {
     $self->{'LAST_ERROR'} = "File does not exist: $src_path";
-    return(undef);
+    return;
   }
 
   my($local_sep, $remote_sep, $src_file, $data, $task_num, $length,
@@ -1882,7 +1896,7 @@ sub _al06_put_file_resume
     unless($rsrc_fh->fdopen($res_fd, "r"))
     {
       $self->{'LAST_ERROR'} = "Couldn't open Mac resource fork: $@";
-      return(undef);    
+      return;    
     }
 
     $rsrc_fh->seek(0, SEEK_END);    # Fast forward to end
@@ -1914,7 +1928,7 @@ sub _al06_put_file_resume
                                $type, $creator, $length ]);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub get_file
@@ -1940,14 +1954,14 @@ sub _al07_get_file_now
   $task_num = $self->_get_file($path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   if(wantarray)
@@ -1986,7 +2000,7 @@ sub _get_file
 
   $task_num = _file_action_simple($self, $path, HTLC_HDR_FILE_GET, HTLC_TASK_FILE_GET, 'GET FILE');
 
-  return(undef)  unless(defined($task_num));
+  return  unless(defined($task_num));
 
   $self->{'TASKS'}->{$task_num}->path([ $path, $data_file, $rsrc_file ]);
 
@@ -2016,14 +2030,14 @@ sub _al02_get_file_resume_now
   $task_num = $self->_al08_get_file_resume($path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   if(wantarray)
@@ -2070,7 +2084,7 @@ sub _al08_get_file_resume
   unless(-e $data_file || -e $rsrc_file)
   {
     $self->{'LAST_ERROR'} = "Can't resume download: partial download does not exist.";
-    return(undef);
+    return;
   }
 
   # Get data fork position
@@ -2090,7 +2104,7 @@ sub _al08_get_file_resume
     unless($rsrc_fh->fdopen($res_fd, "r"))
     {
       $self->{'LAST_ERROR'} = "Couldn't open Mac resource fork: $@";
-      return(undef);    
+      return;    
     }
 
     $rsrc_fh->seek(0, SEEK_END);    # Fast forward to end
@@ -2125,7 +2139,7 @@ sub _al08_get_file_resume
   substr($more_data, 4, 4) = HTXF_RFLT_MAGIC;
   substr($more_data, 8, 2) = pack("n", 0x0001);
 
-  substr($more_data, 45, 1) = pack("c", 0x02);
+  substr($more_data, 45, 1) = pack("C", 0x02);
   substr($more_data, 46, 4) = 'DATA';
   substr($more_data, 50, 4) = pack("N", $data_pos);
 
@@ -2144,7 +2158,7 @@ sub _al08_get_file_resume
                              [ $path, $data_file, $rsrc_file ]);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub _al09_file_action_packet_stub
@@ -2211,7 +2225,7 @@ sub _al09_file_action_packet_stub
       }
 
       $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("c", length($path_part)) .# Length
+               pack("C", length($path_part)) .# Length
                $path_part;                    # Path part
     }
   }
@@ -2224,7 +2238,7 @@ sub _file_action_simple
   my($self, $path, $type, $task_type, $task_name) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened() && length($path));
+  return  unless($server->opened() && length($path));
 
   my($data, $task_num) = _al09_file_action_packet_stub($self, $path, $type);
 
@@ -2237,7 +2251,7 @@ sub _file_action_simple
       new Net::Hotline::Task($task_num, $task_type, time(), undef, $path);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub move
@@ -2263,14 +2277,14 @@ sub _move_now
   $task_num = $self->_move($src_path, $dest_path);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -2281,7 +2295,7 @@ sub _move
   my($self, $src_path, $dest_path) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened() && length($src_path)  && length($dest_path));
+  return  unless($server->opened() && length($src_path)  && length($dest_path));
 
   my($data, $task_num, $length, $num_atoms);
   my(@src_path_parts, $save_src_path, $src_file, $src_dir_len);
@@ -2377,7 +2391,7 @@ sub _move
       }
 
       $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("c", length($path_part)) .# Length
+               pack("C", length($path_part)) .# Length
                $path_part;                    # Path part
     }
   }
@@ -2400,7 +2414,7 @@ sub _move
       }
 
       $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("c", length($path_part)) .# Length
+               pack("C", length($path_part)) .# Length
                $path_part;                    # Path part
     }
   }
@@ -2417,7 +2431,7 @@ sub _move
                          undef, [ $save_src_path, $save_dest_path ]);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub rename
@@ -2443,14 +2457,14 @@ sub _rename_now
   $task_num = $self->rename($path, $new_name);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -2487,14 +2501,14 @@ sub _comment_now
   $task_num = $self->comment($path, $comments);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -2514,7 +2528,7 @@ sub _change_file_info
   my($self, $path, $name, $comments) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data, $task_num, @path_parts, $length, $save_path, $file,
      $dir_len, $num_atoms);
@@ -2599,7 +2613,7 @@ sub _change_file_info
       }
 
       $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("c", length($path_part)) .# Length
+               pack("C", length($path_part)) .# Length
                $path_part;                    # Path part
     }
   }
@@ -2638,7 +2652,7 @@ sub _change_file_info
       new Net::Hotline::Task($task_num, HTLC_TASK_SET_INFO, time(), undef, $save_path);
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub post_news
@@ -2664,14 +2678,14 @@ sub _al10_post_news_now
   $task_num = $self->post_news(@post);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -2682,7 +2696,7 @@ sub _post_news
   my($self, @post) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($post) = join('', @post);
 
@@ -2712,7 +2726,7 @@ sub _post_news
     $self->{'TASKS'}->{$task_num} =
       new Net::Hotline::Task($task_num, HTLC_TASK_NEWS_POST, time());
   }
-  else { return(undef) }
+  else { return }
 
   return($task_num);
 }
@@ -2726,14 +2740,14 @@ sub get_news
   $task_num = $self->req_news();
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   if(wantarray)
@@ -2751,7 +2765,7 @@ sub req_news
   my($self) = shift;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data, $task_num);
 
@@ -2777,7 +2791,7 @@ sub req_news
       new Net::Hotline::Task($task_num, HTLC_TASK_NEWS, time());
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub al04_user_by_nick
@@ -2806,7 +2820,7 @@ sub al04_user_by_nick
   }
 
   if(@users) { return @users }
-  else       { return undef  }
+  else       { return }
 }
 
 sub user_by_socket
@@ -2838,7 +2852,7 @@ sub _update_user
   my($self, $icon, $nick) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data);
 
@@ -2870,7 +2884,7 @@ sub _update_user
   {
     return(1);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub get_userlist
@@ -2882,14 +2896,14 @@ sub get_userlist
   $task_num = $self->req_userlist();
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return $self->{'USER_LIST'};
@@ -2900,7 +2914,7 @@ sub al05_req_userlist
   my($self) = shift;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data, $task_num);
 
@@ -2926,7 +2940,7 @@ sub al05_req_userlist
       new Net::Hotline::Task($task_num, HTLC_TASK_USER_LIST, time());
     return($task_num);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub kick
@@ -2952,14 +2966,14 @@ sub _kick_now
   $task_num = $self->kick($user_or_socket);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -2970,7 +2984,7 @@ sub _kick
   my($self, $user_or_socket) = @_;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($socket, $task_num);
 
@@ -3004,7 +3018,7 @@ sub _kick
     $self->{'TASKS'}->{$task_num} =
       new Net::Hotline::Task($task_num, HTLC_TASK_KICK, time());
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub msg
@@ -3030,14 +3044,14 @@ sub _msg_now
   $task_num = $self->kick($user_or_socket, @message);
   $task = $self->{'TASKS'}->{$task_num};
 
-  return(undef)  unless($task_num);
+  return  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   return(1);
@@ -3052,7 +3066,7 @@ sub _msg
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($socket);
 
@@ -3091,7 +3105,7 @@ sub _msg
     $self->{'TASKS'}->{$task_num} =
       new Net::Hotline::Task($task_num, HTLC_TASK_SEND_MSG, time());
   }
-  else { return(undef) }
+  else { return }
 
   return($task_num);
 }
@@ -3105,7 +3119,7 @@ sub chat_action
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data);
 
@@ -3135,7 +3149,7 @@ sub chat_action
   {
     return(1);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub chat
@@ -3147,7 +3161,7 @@ sub chat
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
   my($server) = $self->{'SERVER'};
-  return(undef)  unless($server->opened());
+  return  unless($server->opened());
 
   my($data);
 
@@ -3173,7 +3187,7 @@ sub chat
   {
     return(1);
   }
-  else { return(undef) }
+  else { return }
 }
 
 sub send_file
@@ -3205,7 +3219,7 @@ sub send_file
       $task->finish(time());
       $task->error_text("Bad data from server!");
       $self->{'LAST_ERROR'} = $task->error_text();
-      return(undef);
+      return;
     }
 
     $data_pos = unpack("N", substr($resume, 46, 4));
@@ -3228,7 +3242,7 @@ sub send_file
     $task->finish(time());
     $task->error_text("Could not open to $src_path: $!");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   if($self->{'MACOS'})
@@ -3243,7 +3257,7 @@ sub send_file
       $task->finish(time());
       $task->error_text("Could not read to resource fork from $src_path: $!");
       $self->{'LAST_ERROR'} = $task->error_text();
-      return(undef);
+      return;
     }
   }
   elsif($rsrc_len > 0 || ($resume && $rsrc_pos > 0))
@@ -3253,7 +3267,7 @@ sub send_file
     $task->error_text("Server is expecting resource fork data from a non-Mac OS client!\n" .
                       "Are you sure you're uploading the right file?");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   if($resume)
@@ -3266,7 +3280,7 @@ sub send_file
         $task->finish(time());
         $task->error_text("Could not seek to position $rsrc_pos in resource fork of $src_path: $!");
         $self->{'LAST_ERROR'} = $task->error_text();
-        return(undef);
+        return;
       }
     }
 
@@ -3278,7 +3292,7 @@ sub send_file
         $task->finish(time());
         $task->error_text("Could not seek to position $data_pos in $src_path: $!");
         $self->{'LAST_ERROR'} = $task->error_text();
-        return(undef);
+        return;
       }
     }
   }
@@ -3301,9 +3315,9 @@ sub send_file
                                        Proto    =>'tcp'))
   {
     $task->finish(time());
-    $task->error_text("Could not open file transfer connection: $!");
+    $task->error_text("Could not open file transfer connection: $@");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   _debug(_hexdump($data));
@@ -3314,7 +3328,7 @@ sub send_file
     $task->error(1);
     $task->finish(time());
     $task->error_text($self->{'LAST_ERROR'});
-    return(undef);
+    return;
   }
 
   # 46 49 4c 50  00 01 00 00  00 00 00 00  00 00 00 00  FILP............
@@ -3347,7 +3361,7 @@ sub send_file
     $task->error(1);
     $task->finish(time());
     $task->error_text($self->{'LAST_ERROR'});
-    return(undef);
+    return;
   }
 
   # Upload data fork
@@ -3370,7 +3384,7 @@ sub send_file
     $task->error(1);
     $task->finish(time());
     $task->error_text($self->{'LAST_ERROR'});
-    return(undef);
+    return;
   }
 
   if($rsrc_len > 0)
@@ -3382,7 +3396,7 @@ sub send_file
       $task->error(1);
       $task->finish(time());
       $task->error_text("Upload did not complete.");
-      return(undef);
+      return;
     }
   }
 
@@ -3413,7 +3427,7 @@ sub recv_file
     $task->error(1);
     $task->finish(time());
     $task->error_text("Could not write to $data_file: $!");
-    return(undef);
+    return;
   }
 
   if($self->{'MACOS'})
@@ -3423,7 +3437,7 @@ sub recv_file
     eval '$res_fd = POSIX::open($data_file, O_WRONLY | O_CREAT | O_RSRC)';
   }
 
-  # If we're on Mac OS and we can write directly to teh resource fork
+  # If we're on Mac OS and we can write directly to the resource fork
   if(defined($res_fd) && $rsrc_fh->fdopen($res_fd, "r"))
   {
     $real_mac_res_fork = 1;
@@ -3437,7 +3451,7 @@ sub recv_file
       $task->error(1);
       $task->finish(time());
       $task->error_text("Could not write to $rsrc_file: $!");
-      return(undef);
+      return;
     }
   }
 
@@ -3453,9 +3467,9 @@ sub recv_file
                                        Proto    =>'tcp'))
   {
     $task->finish(time());
-    $task->error_text("Could not open file transfer connection: $!");
+    $task->error_text("Could not open file transfer connection: $@");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   unless(_hlc_write($self, $xfer, \$data, length($data)))
@@ -3464,7 +3478,7 @@ sub recv_file
     $task->error(1);
     $task->finish(time());
     $task->error_text($self->{'LAST_ERROR'});
-    return(undef);
+    return;
   }
 
   # 46 49 4C 50  00 01 00 00  00 00 00 00  00 00 00 00  FILP............
@@ -3476,7 +3490,7 @@ sub recv_file
     $task->error(1);
     $task->finish(time());
     $task->error_text($self->{'LAST_ERROR'});
-    return(undef);
+    return;
   }
 
   $tot_length -= SIZEOF_HL_FILE_XFER_HDR;
@@ -3489,7 +3503,7 @@ sub recv_file
     $task->finish(time());
     $task->error_text("Bad data from server!");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   #                           41 4D 41 43  54 45 58 54          AMACTEXT
@@ -3507,7 +3521,7 @@ sub recv_file
     $task->error(1);
     $task->finish(time());
     $task->error_text($self->{'LAST_ERROR'});
-    return(undef);
+    return;
   }
 
   $tot_length -= $length;
@@ -3518,7 +3532,7 @@ sub recv_file
   $created      = unpack("N", substr($data, 56, 4));
   $finder_flags = substr($data, 18, 2);
   $modified     = unpack("N", substr($data, 64, 4));
-  $name_len     = unpack("c", substr($data, 71, 1));
+  $name_len     = unpack("C", substr($data, 71, 1));
   $comments_len = unpack("n", substr($data, 72 + $name_len, 2)); # 72
   $comments = substr($data, 72 + $name_len + 2, $comments_len);
 
@@ -3534,7 +3548,7 @@ sub recv_file
     $task->finish(time());
     $task->error_text("Download incomplete.");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   # Yet another server bug: it'll tell you it's going to send a resource
@@ -3546,7 +3560,7 @@ sub recv_file
   {
     # 4D 41 43 52  00 00 00 00  00 00 00 00  00 00 01 EC  MACR............
     $length = _hlc_buffered_read($self, $xfer, \$data, SIZEOF_HL_FILE_FORK_HDR);
-    return(undef)  unless($length);
+    return  unless($length);
     $tot_length -= $length;
 
     $rsrc_len = unpack("N", substr($data, -4));
@@ -3561,7 +3575,7 @@ sub recv_file
       $task->finish(time());
       $task->error_text("Download incomplete.");
       $self->{'LAST_ERROR'} = $task->error_text();
-      return(undef);
+      return;
     }
   }
   else
@@ -3579,7 +3593,7 @@ sub recv_file
     $task->error_text("Tried to download $size bytes, got " .
                       $size - $tot_length . " bytes instead.");
     $self->{'LAST_ERROR'} = $task->error_text();
-    return(undef);
+    return;
   }
 
   $data_len = (stat($data_file))[7];
@@ -3655,8 +3669,8 @@ sub _download
   if($len <= $buf_size)
   {
     $read = read($src_fh, $data, $len);
-    return(undef)  unless(defined($read));
-    print $dest_fh $data || return(undef);
+    return  unless(defined($read));
+    print $dest_fh $data || return;
     $tot_read += $read;
   }
   else
@@ -3667,16 +3681,16 @@ sub _download
     for(; $loop > 0; $loop--)
     {
       $read = read($src_fh, $data, $buf_size);
-      return(undef)  unless(defined($read));
-      print $dest_fh $data || return(undef);
+      return  unless(defined($read));
+      print $dest_fh $data || return;
       $tot_read += $read;
     }
 
     if($leftover > 0)
     {
       $read = read($src_fh, $data, $leftover);
-      return(undef)  unless(defined($read));
-      print $dest_fh $data || return(undef);
+      return  unless(defined($read));
+      print $dest_fh $data || return;
       $tot_read += $read;
     }
   }
@@ -3697,8 +3711,8 @@ sub _upload
 
   if($len <= $buf_size)
   {
-    unless(defined(read($src_fh, $data, $len))) { return(undef) }
-    _hlc_write($self, $dest_fh, \$data, length($data)) || return(undef);
+    unless(defined(read($src_fh, $data, $len))) { return }
+    _hlc_write($self, $dest_fh, \$data, length($data)) || return;
   }
   else
   {
@@ -3707,36 +3721,18 @@ sub _upload
 
     for(; $loop > 0; $loop--)
     {
-      unless(defined(read($src_fh, $data, $buf_size))) { return(undef) }
-      _hlc_write($self, $dest_fh, \$data, length($data)) || return(undef);
+      unless(defined(read($src_fh, $data, $buf_size))) { return }
+      _hlc_write($self, $dest_fh, \$data, length($data)) || return;
     }
 
     if($leftover > 0)
     {
-      unless(defined(read($src_fh, $data, $leftover))) { return(undef) }
-      _hlc_write($self, $dest_fh, \$data, length($data)) || return(undef);
+      unless(defined(read($src_fh, $data, $leftover))) { return }
+      _hlc_write($self, $dest_fh, \$data, length($data)) || return;
     }
   }
 
   return(1);
-}
-
-# Macbinary CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
-sub macbin_crc
-{
-  shift if(ref($_[0]));
-
-  my($len) = length($_[0]);
-  my($crc) = $_[1];
-
-  my($i);
-
-  for($i = 0; $i < $len; $i++)
-  {
-    ($crc ^= (vec($_[0], $i, 8) << 8)) &= 0xFFFF;
-    $crc = ($crc << 8) ^ $MAGIC[$crc >> 8];
-  }
-  return $crc;
 }
 
 sub macbinary
@@ -3762,10 +3758,21 @@ sub macbinary
   {
     $self->{'LAST_ERROR'} = "No resource or data fork length."  if($self);
     $! = "No resource or data fork length.";
-    return(undef);
+    return;
   }
 
-  ($finished_file = $data_file) =~ s/$self->{'DATA_FORK_EXT'}$//;
+  if(defined($data_file))
+  {
+    ($finished_file = $data_file) =~ s/$self->{'DATA_FORK_EXT'}$//;
+  }
+  elsif(defined($rsrc_file))
+  {
+    ($finished_file = $rsrc_file) =~ s/$self->{'RSRC_FORK_EXT'}$//;
+  }
+  else
+  {
+    croak "Bad arguments to macbinary() - No rsrc or data file arguments.";
+  }
 
   $finished_file =~ /([^@{[PATH_SEPARATOR]}]+)$/o;
   $filename = $1;
@@ -3779,7 +3786,7 @@ sub macbinary
   {
     $self->{'LAST_ERROR'} = "$macbin_file: file already exists."  if($self);
     $! = "$macbin_file: file already exists.";
-    return(undef);
+    return;
   }
 
   $buf_size = 4096  unless($buf_size =~ /^\d+$/);
@@ -3791,7 +3798,7 @@ sub macbinary
   unless($macbin_fh->open(">$macbin_file"))
   {
     $self->{'LAST_ERROR'} = $!  if($self);
-    return(undef);
+    return;
   }
 
   $macbin_hdr = pack("x128"); # Start with empty 128 byte header
@@ -3799,7 +3806,7 @@ sub macbinary
   # Offset 000-Byte, old version number, must be kept at zero for compatibility
 
   # Offset 001-Byte, Length of filename (must be in the range 1-63)
-  substr($macbin_hdr, 1, 1) = pack("c", length($filename));
+  substr($macbin_hdr, 1, 1) = pack("C", length($filename));
 
   # Offset 002-1 to 63 chars, filename (only "length" bytes are significant).
   substr($macbin_hdr, 2, length($filename)) = $filename;
@@ -3820,7 +3827,7 @@ sub macbinary
   #     Bit 1 - Changed.
   #     Bit 0 - Inited.
   substr($macbin_hdr, 73, 1) =             # Clear inited bit
-    pack("c", unpack("c", substr($finder_flags, 0, 1)) & 0xFE);
+    pack("C", unpack("C", substr($finder_flags, 0, 1)) & 0xFE);
 
   # Offset 074-Byte, zero fill, must be zero for compatibility
 
@@ -3864,11 +3871,11 @@ sub macbinary
 
   # Offset 122-Byte, Version number of Macbinary II that the uploading program
   # is written for (the version begins at 129)
-  substr($macbin_hdr, 122, 1) = pack("c", 129);
+  substr($macbin_hdr, 122, 1) = pack("C", 129);
 
   # Offset 123-Byte, Minimum MacBinary II version needed to read this file
   # (start this value at 129 129)
-  substr($macbin_hdr, 123, 1) = pack("c", 129);
+  substr($macbin_hdr, 123, 1) = pack("C", 129);
 
   # Offset 124-Word, CRC of previous 124 bytes
   substr($macbin_hdr, 124, 2) = pack("n", macbin_crc(substr($macbin_hdr, 0, 124), 0));
@@ -3882,7 +3889,7 @@ sub macbinary
     unless($data_fh->open($data_file))
     {
       $self->{'LAST_ERROR'} = $!  if($self);
-      return(undef);
+      return;
     }
 
     while($len = read($data_fh, $buf, $buf_size))
@@ -3905,7 +3912,7 @@ sub macbinary
     unless($rsrc_fh->open($rsrc_file))
     {
       $self->{'LAST_ERROR'} = $!  if($self);
-      return(undef);
+      return;
     }
 
     while($len = read($rsrc_fh, $buf, $buf_size))
@@ -3925,4 +3932,130 @@ sub macbinary
   $macbin_fh->close();
 
   return(1);
+}
+
+sub tracker
+{
+  $_[0]->{'TRACKER_ADDR'} = $_[1]  if(@_ == 2);
+  return $_[0]->{'TRACKER_ADDR'};
+}
+
+sub tracker_list
+{
+  my($self, $timeout) = @_;
+
+  my($tracker, $tracker_address, $server, $port, @servers, $data,
+     $num_servers, $length, $tli_ip, $tli_port, $tli_num_users,
+     $tli_name, $tli_desc);
+
+  $tracker_address = $self->{'TRACKER_ADDR'};
+
+  unless($tracker_address =~ /\S/)
+  {
+    croak("Tracker address not set!");
+  }
+
+  if(($server = $tracker_address) =~ s/^([^ :]+)(?:[: ](\d+))?$/$1/)
+  {
+    $port = $2 || HTRK_TCPPORT;
+  }
+  else
+  {
+    croak("Bad server address: $tracker_address");
+  }
+
+  $timeout = $self->{'CONNECT_TIMEOUT'}  unless(defined($timeout));
+
+  $SIG{'ALRM'} = sub { die "timeout" };
+
+  eval
+  {
+    alarm($timeout);
+  
+    $tracker = IO::Socket::INET->new(PeerAddr =>$server,
+                                     PeerPort =>$port,
+                                     Timeout  =>$timeout,
+                                     Proto    =>'tcp');
+    alarm(0);
+  };
+
+  $SIG{'ALRM'} = 'DEFAULT';
+
+  if($@ =~ /^timeout/)
+  {
+    $self->{'LAST_ERROR'} = "Timed out after $timeout seconds.";
+    return;
+  }
+
+  if(!$tracker || $@)
+  {
+    $self->{'LAST_ERROR'} = $@ || $! || 'Connection failed';
+    return;
+  }
+
+  # 48 54 52 4B  00 01                                  HTRK..
+  _hlc_write($self, $tracker, \HTRK_MAGIC, HTRK_MAGIC_LEN) || return;
+
+  # 48 54 52 4B  00 01                                  HTRK..
+  _hlc_buffered_read($self, $tracker, \$data, HTRK_MAGIC_LEN) || return;
+
+  unless($data eq HTRK_MAGIC)
+  {
+    $self->{'LAST_ERROR'} = "Bad data from tracker.  Not a hotline tracker?";
+    return;
+  }
+
+  # 00 01 1F F5  00 53 00 4A  | D1 9C 4B 86  15 7C 00 04  .....S.J..K..|..
+  # ^^^^^^^^^^^  ^^^^^ ^^^^^  | ^^^^^^^^^^^  ^^^^^ ^^^^^
+  # ???????????    |   ?????  | IP Address   Port  num users ...
+  #              num servers  |
+  _hlc_buffered_read($self, $tracker, \$data, 8) || return; 
+
+  $num_servers = unpack("n", substr($data, 4, 2));
+
+  while(@servers < $num_servers)
+  {
+    # 4 bytes for IP, 2 bytes for port, 2 bytes for num users, 2 null
+    # bytes, 1 byte for name len
+    unless(_hlc_buffered_read($self, $tracker, \$data, 4 + 2 + 2 + 2 + 1))
+    {
+      $tracker->close()  if($tracker->opened());
+      return  unless(@servers);
+      return (wantarray) ? @servers : \@servers;
+    }
+
+    $tli_ip        = join('.', map { unpack("C", $_) } split('', substr($data, 0, 4)));
+    $tli_port      = unpack("n", substr($data, 4, 2));
+    $tli_num_users = unpack("n", substr($data, 6, 2));
+
+    $length = unpack("C", substr($data, 10, 1));
+
+    # $length bytes for name, 1 byte for description length
+    unless(_hlc_buffered_read($self, $tracker, \$data, $length + 1))
+    {
+      $tracker->close()  if($tracker->opened());
+      return  unless(@servers);
+      return (wantarray) ? @servers : \@servers;
+    }
+
+    $length = unpack("C", chop($tli_name = $data));
+
+    # $length bytes for description
+    unless(_hlc_buffered_read($self, $tracker, \$tli_desc, $length))
+    {
+      $tracker->close()  if($tracker->opened());
+      return  unless(@servers);
+      return (wantarray) ? @servers : \@servers;
+    }
+
+    push(@servers, new Net::Hotline::TrackerListItem($tli_ip,
+                                                     $tli_port,
+                                                     $tli_num_users,
+                                                     $tli_name,
+                                                     $tli_desc));
+  }
+
+  $tracker->close()  if($tracker->opened());
+
+  return (wantarray) ? @servers : \@servers;
 }

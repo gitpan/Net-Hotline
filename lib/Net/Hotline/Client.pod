@@ -240,6 +240,12 @@ Sets the resource fork filename extension for downloads to TEXT (if
 present). Returns the current resource fork filename extension.  The
 default setting is ".rsrc"
 
+=item tracker TEXT
+
+Sets the tracker address to TEXT (if present), where TEXT is an IP address
+or hostname, optionally followed by a colon and a port number.  Returns the
+current tracker address.
+
 =item xfer_bufsize BYTES
 
 Sets the file transfer buffer size to BYTES.  Returns the current buffer
@@ -296,16 +302,17 @@ set via C<downloads_dir()>.
 
 In blocking task mode, returns either an array (in array context) or a
 reference to an array (in scalar context) containing a Net::Hotline::Task
-object, a download reference number, and the size of the download on success,
-or undef if an error occurred.  Those return values are meant to be fed to
-C<recv_file()> like this (error handling omitted):
+object, a download reference number, and the size of the download on
+success, an undef or an empty list if an error occurred.  Those return
+values are meant to be fed to C<recv_file()> like this (error handling
+omitted):
 
 	($task, $ref, $size) = $hlc->get_file("Folder1:file.sit");
 
 	$hlc->recv_file($task, $ref, $size);
 
 In event loop mode, returns a task number if the request was sent
-successfully, or undef if an error occurred.
+successfully, and undef or an empty list if an error occurred.
 
 =item get_file_resume PATH
 
@@ -317,16 +324,17 @@ C<data_fork_extension()> and C<rsrc_fork_extensions()>.
 
 In blocking task mode, returns either an array (in array context) or a
 reference to an array (in scalar context) containing a Net::Hotline::Task
-object, a download reference number, and the size of the download on success,
-or undef if an error occurred.  Those return values are meant to be fed to
-C<recv_file()> like this (error handling omitted):
+object, a download reference number, and the size of the download on
+success, and undef or an empty list if an error occurred.  Those return
+values are meant to be fed to C<recv_file()> like this (error handling
+omitted):
 
 	($task, $ref, $size) = $hlc->get_file_resume("Folder1:file.sit");
 
 	$hlc->recv_file($task, $ref, $size);
 
 In event loop mode, returns a task number if the request was sent
-successfully, or undef if an error occurred.
+successfully, and undef or an empty list if an error occurred.
 
 =item get_fileinfo PATH
 
@@ -338,8 +346,8 @@ blocking task mode.
 
 Returns an array (in array context) or a reference to an array (in scalar
 context) of Net::Hotline::FileListItem objects corresponding to the
-contents of the server directory PATH, or undef if an error occurred. 
-Should only be used in blocking task mode.
+contents of the server directory PATH, and undef or an empty list if an
+error occurred. Should only be used in blocking task mode.
 
 =item get_news
 
@@ -347,10 +355,10 @@ Get the news from the server.
 
 In blocking task mode, returns an array containing the new posts (in array
 context) or the news as a large text string (in scalar context) on success,
-or undef if an error occurred.
+and undef or an empty list if an error occurred.
 
 In event loop mode, returns a task number if the request was sent
-successfully, or undef if an error occurred.
+successfully, and undef or an empty list if an error occurred.
 
 =item get_userinfo SOCKET
 
@@ -468,8 +476,8 @@ C<send_file_resume()> instead.
 
 In blocking task mode, returns an array (in array context) or a reference
 to an array (in scalar context) containing a Net::Hotline::Task object, an
-upload reference number, and the size of the upload, or undef if
-an error occurred.  Those return values are meant to be fed to
+upload reference number, and the size of the upload, and undef or an empty
+list if an error occurred.  Those return values are meant to be fed to
 C<send_file()> like this (error handling omitted):
 
 	($task, $ref, $size) = $hlc->put_file("/home/john/file.gz",
@@ -479,7 +487,7 @@ C<send_file()> like this (error handling omitted):
 	$hlc->send_file($task, $ref, $size);
 
 In event loop mode, returns a task number if the request was sent
-successfully, or undef if an error occurred.
+successfully, and undef or an empty list if an error occurred.
 
 =item put_file_resume SRC_PATH, DEST_PATH, COMMENT
 
@@ -495,9 +503,9 @@ new file.
 In blocking task mode, returns an array (in array context) or a reference
 to an array (in scalar context) containing a Net::Hotline::Task object, an
 upload reference number, the size of the upload, and additional information
-needed to resume the upload, or undef if an error occurred. 
-Those return values are meant to be fed to C<send_file()> like this (error
-handling omitted):
+needed to resume the upload, and undef or an empty list if an error
+occurred. Those return values are meant to be fed to C<send_file()> like
+this (error handling omitted):
 
 	($task, $ref, $size, $rflt) = 
 	  $hlc->put_file_resume("/home/john/file.gz",
@@ -507,7 +515,7 @@ handling omitted):
 	$hlc->send_file($task, $ref, $size, $rflt);
 
 In event loop mode, returns a task number if the request was sent
-successfully, or undef if an error occurred.
+successfully, and undef or an empty list if an error occurred.
 
 =item recv_file TASK, REF, SIZE
 
@@ -577,6 +585,27 @@ the upload reference number REF, the size in bytes SIZE, and the resume
 information RFLT returned by C<put_file()> (in blocking task mode) or
 supplied to the C<put_file()> handler routine (in event loop mode). Returns
 1 if the upload completed successfully, or undef if there was an error.
+
+=item tracker_list TIMEOUT
+
+Connects to the server set via the C<tracker()> method and retreives the
+list of servers tracked by that tracker.  Returns an array (in array
+context) or a reference to an array (in scalar context) of
+Net::Hotline::TrackerListItem objects on success, and undef or an empty
+list on failure, with the error condition available via C<last_error()>.
+
+The initial connection to the tracker will timeout after TIMEOUT seconds,
+or the current value set via C<connection_timeout()> if TIMEOUT is omitted.
+A TIMEOUT value of zero will disable the timeout.
+
+Note that this method does not return until it has retreived the list of
+tracked servers, and that the timeout applies B<only> to the initial
+connection to the tracker.  It is often the case with overloaded trackers
+that this method will hang when writing to or reading from the tracker
+(regardless of the timeout value), many times resulting in a C<die> with a
+broken pipe error in one of the network I/O functions.  To avoid this,
+either try a more responsive tracker and/or wrap your C<tracker_list()>
+call in an C<eval> block and check C<$@>.
 
 =back
 
@@ -698,14 +727,15 @@ number, or undef if the userlist has not yet been received.
 
 =item user_by_nick REGEX
 
-Returns reference(s) to user objects with nicknames matching REGEX, or
-undef if there are no matches.  Also returns undef if called before the
-userlist has been retrieved from the server. REGEX is treated as a
-case-sensitive anchored regular expression internally (i.e. C</^REGEX$/>). 
-If your regex matches more than one user's nickname, and C<user_by_nick()>
-was called in array context, an array of references to user objects will be
-returned. Otherwise, the first user object that matched will be returned
-(as ordered by socket number, from low to high).
+Returns reference(s) to user objects with nicknames matching REGEX, and
+undef or an empty list if there are no matches.  Also returns undef or an
+empty list if called before the userlist has been retrieved from the
+server. REGEX is treated as a case-sensitive anchored regular expression
+internally (i.e. C</^REGEX$/>). If your regex matches more than one user's
+nickname, and C<user_by_nick()> was called in array context, an array of
+references to user objects will be returned. Otherwise, the first user
+object that matched will be returned (as ordered by socket number, from low
+to high).
 
 =item user_by_socket SOCKET
 

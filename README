@@ -16,8 +16,10 @@ date.
 
 CHANGES
 
-Version 0.62 fixes a major bug in the network write routine, and includes
-an updated version of "hlftp.pl"  See the "Changes" file for more details.
+Version 0.64 fixes a bug involving converting files with no data fork to
+MacBinary II format, corrects file path translation in "hlftp.pl", and
+includes a few internal variable scoping and code style changes.  See the
+"Changes" file for more details.
 
 INSTALLATION
 
@@ -50,8 +52,8 @@ Here are a few common variations on that theme:
   commenting out two lines in "Client.pm" to disable AutoLoading.  The
   lines are:
 
-          12: use AutoLoader 'AUTOLOAD';
-        1296: __END__
+          30: require AutoLoader;
+        1310: __END__
 
   Just add a "#" character to the beginning of those lines.
 
