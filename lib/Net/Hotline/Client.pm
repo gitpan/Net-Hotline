@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.72';
+$VERSION = '0.73';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -309,10 +309,9 @@ sub connect
     croak("Bad server address: $server");
   }
 
-  $SIG{'ALRM'} = sub { die "timeout" };
-
   eval
   {
+    $SIG{'ALRM'} = sub { die "timeout" };
     alarm($self->{'CONNECT_TIMEOUT'});
 
     $self->{'SERVER'} = 
@@ -320,12 +319,12 @@ sub connect
                             PeerPort =>$port,
                             Timeout  =>$self->{'CONNECT_TIMEOUT'},
                             Proto    =>'tcp');
+
     alarm(0);
+    $SIG{'ALRM'} = 'DEFAULT';
   };
 
-  $SIG{'ALRM'} = 'DEFAULT';
-
-  if($@ =~ /^timeout/)
+  if($@ =~ /timeout/)
   {
     $self->{'LAST_ERROR'} = "Timed out after $self->{'CONNECT_TIMEOUT'} seconds";
     return;
@@ -4227,10 +4226,9 @@ sub tracker_list
 
   $timeout = $self->{'CONNECT_TIMEOUT'}  unless(defined($timeout));
 
-  $SIG{'ALRM'} = sub { die "timeout" };
-
   eval
   {
+    $SIG{'ALRM'} = sub { die "timeout" };
     alarm($timeout);
   
     $tracker = IO::Socket::INET->new(PeerAddr =>$server,
@@ -4238,11 +4236,10 @@ sub tracker_list
                                      Timeout  =>$timeout,
                                      Proto    =>'tcp');
     alarm(0);
+    $SIG{'ALRM'} = 'DEFAULT';
   };
 
-  $SIG{'ALRM'} = 'DEFAULT';
-
-  if($@ =~ /^timeout/)
+  if($@ =~ /timeout/)
   {
     $self->{'LAST_ERROR'} = "Timed out after $timeout seconds.";
     return;

@@ -16,8 +16,8 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.72 fixes a minor AutoLoader bug.  See the "Changes" file for more
-details.
+Version 0.73 includes minor bug-fixes to signal handling and "hlftp.pl"
+See the "Changes" file for more details.
 
 INSTALLATION
 
@@ -52,7 +52,7 @@ Here are a few common variations on that theme:
 
           31: require AutoLoader;
           32: @ISA = qw(AutoLoader);
-        1491: __END__
+        1490: __END__
 
   Just add a "#" character to the beginning of those lines.
 

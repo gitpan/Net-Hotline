@@ -26,7 +26,7 @@ use Net::Hotline::Constants
      HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
      HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
-$VERSION = '0.72';
+$VERSION = '0.73';
 
 sub new
 {

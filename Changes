@@ -1,5 +1,11 @@
 Revision history for Perl module Net::Hotline
 
+0.73 (03.27.1999) - John Siracusa <siracusa@mindspring.com>
+
+    * Changed signal handline and eval {} blocks slightly.
+
+    * Fixed a few miscellaneous bugs in hlftp.pl
+
 0.72 (02.27.1999) - John Siracusa <siracusa@mindspring.com>
 
     * Shortened internal functions name to satisfy AutoLoader on Mac OS.

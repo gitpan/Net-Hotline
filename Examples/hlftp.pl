@@ -8,8 +8,8 @@
 ## hlftp.pl - A simple FTP-like hotline client by John Siracusa, created to
 ##            demonstrate the Net::Hotline::Client module's blocking task mode.
 ##
-## Created:  July      10th, 1998
-## Modified: September 11th, 1998
+## Created:  July  10th, 1998
+## Modified: March 27th, 1999
 ##
 
 use Cwd;
@@ -19,10 +19,10 @@ use Term::ReadLine;
 use Time::localtime;
 use Net::Hotline::Client;
 use Net::Hotline::Constants
-  qw(HTLC_FOLDER_TYPE HTXF_PARTIAL_TYPE HTXF_PARTIAL_CREATOR
-     HTLC_MACOS_TO_UNIX_TIME);
+  qw(HTXF_PARTIAL_TYPE HTXF_PARTIAL_CREATOR HTLC_MACOS_TO_UNIX_TIME
+     HTLC_FOLDER_TYPE HTLC_INFO_FOLDER_TYPE HTLC_INFO_FALIAS_TYPE);
 
-$VERSION = '1.03';
+$VERSION = '1.05';
 
 getopts('bchn:pquvx', \%OPT);
 
@@ -60,7 +60,7 @@ $OUT = STDOUT;
 
 $Net::Hotline::Client::DEBUG = 0;
 
-select((select(STDOUT),$| = 1)[0]);
+$FOLDER_REGEX = join ('|', HTLC_FOLDER_TYPE, HTLC_INFO_FOLDER_TYPE, HTLC_INFO_FALIAS_TYPE);
 
 %HELP = (
 'cd'      => 'cd <dir>        Change remote working directory to <dir>',
@@ -251,11 +251,14 @@ sub Start_Up
     return($hlc);
   }
 
+  if($OPT{'n'}) { $NICK  = $OPT{'n'} }
+  else          { $NICK  = $login    }
+
   print_wrap "Logging in as \"$login\"...\n"  unless($OPT{'q'});
 
   unless($hlc->login(Login    => $login,
                      Password => $pass,
-                     Nickname => $login,
+                     Nickname => $NICK,
                      Icon     => $DEF_ICON,
                      News     => 'no',
                      UserList => 'no'))
@@ -270,7 +273,12 @@ sub Start_Up
   if($OPT{'n'}) { $NICK  = $OPT{'n'} }
   else          { $NICK  = $login    }
 
-  if(length($path))
+  if($path =~ m#:|/#)
+  {
+    print_wrap "Changing directory to <root>...\n"  unless($OPT{'q'});
+    &Change_Dir_Remote($hlc, $path);
+  }
+  elsif(length($path))
   {
     # Check that path is a directory
     my($info) = $hlc->get_fileinfo($path);
@@ -288,7 +296,7 @@ sub Start_Up
       return($hlc);
     }
 
-    if($info->type() =~ /^Folder($| )/i)
+    if($info->type() =~ /^($FOLDER_REGEX)$/i)
     {
       print_wrap "Changing directory to $path...\n"  unless($OPT{'q'});
       &Change_Dir_Remote($hlc, $path);
@@ -688,7 +696,7 @@ sub Get_File
     # Check that path exists and is a file
     my($info) = $hlc->get_fileinfo($path);
 
-    unless($info && $info->type() !~ /^Folder($| )/)
+    unless($info && $info->type() !~ /^($FOLDER_REGEX)$/)
     {
       print_wrap "No such file: $path\n";
       return;
@@ -1050,14 +1058,14 @@ sub Get_Files
       {
         $info = $hlc->get_fileinfo($path);
 
-        unless(ref($info) && $info->type() =~ /^Folder($| )/i)
+        unless(ref($info) && $info->type() =~ /^($FOLDER_REGEX)$/i)
         {
           print_wrap "No such file or directory: $save_path\n";
           return;
         }
       }
     }
-    elsif($info->type() =~ /^Folder($| )/i)
+    elsif($info->type() =~ /^($FOLDER_REGEX)$/i)
     {
       print_wrap "Get the entire contents of the folder \"$path\"? (y/n) [n]: ";
       chomp($res = <STDIN>);
@@ -1259,7 +1267,7 @@ sub Delete_File
     {
       $info = $hlc->get_fileinfo($path);
 
-      unless(ref($info) && $info->type() =~ /^Folder($| )/i)
+      unless(ref($info) && $info->type() =~ /^($FOLDER_REGEX)$/i)
       {
         print_wrap "No such file or directory: $save_path\n";
         return;
@@ -1268,7 +1276,7 @@ sub Delete_File
   }
   else
   {
-    if($info->type() =~ /^Folder($| )/i && $PROMPTING)
+    if($info->type() =~ /^($FOLDER_REGEX)$/i && $PROMPTING)
     {
       $folder = 1;
       print_wrap "Really delete the folder \"$name\" and all its contents? (y/n) [n]: ";
@@ -1469,21 +1477,28 @@ sub Change_Dir_Remote
     return;
   }
 
-  $path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
-
-  if(length($path))
+  if($path =~ m#:|/#)
   {
-    # Check that path exists and is a folder
-    my($info) = $hlc->get_fileinfo($path);
-
-    unless($info && $info->type() =~ /^Folder($| )/)
-    {
-      print_wrap "No such directory: $path\n";
-      return;
-    }
+    $RPWD = '';
   }
+  else
+  {
+    $path = &Rel_To_Abs_Path_Remote(&Convert_Path(&Clean_Path($path)));
 
-  $RPWD = $path;
+    if(length($path))
+    {
+      # Check that path exists and is a folder
+      my($info) = $hlc->get_fileinfo($path);
+
+      unless($info && $info->type() =~ /^($FOLDER_REGEX)$/)
+      {
+        print_wrap "No such directory: $path\n";
+        return;
+      }
+    }
+
+    $RPWD = $path;
+  }
 
   unless($OPT{'q'} || $OPT{'p'})
   {
@@ -1522,14 +1537,14 @@ sub List
       {
         $info = $hlc->get_fileinfo($path);
 
-        unless(ref($info) && $info->type() =~ /^Folder($| )/i)
+        unless(ref($info) && $info->type() =~ /^($FOLDER_REGEX)$/i)
         {
           print_wrap "No such file or directory: $save_path\n";
           return;
         }
       }
     }
-    elsif($info->type() !~ /^Folder($| )/i)
+    elsif($info->type() !~ /^($FOLDER_REGEX)$/i)
     {
       $regex = pop(@path);
       $path = join($REMOTE_SEP, @path);
