@@ -1,5 +1,9 @@
 Revision history for Perl module Net::Hotline
 
+0.65 (09.16.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Added private chat features.
+
 0.64 (09.11.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Using the macbinary() method to convert files with no data fork to

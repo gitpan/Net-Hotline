@@ -8,7 +8,7 @@ use strict;
 
 use vars qw($VERSION);
 
-$VERSION = '0.64';
+$VERSION = '0.65';
 
 sub new
 {
@@ -23,7 +23,7 @@ sub new
     {
       'TYPE'     => substr($data, 0, 4),
       'CREATOR'  => substr($data, 4, 4),
-      'SIZE'     => unpack("L", substr($data, 8, 4)),
+      'SIZE'     => unpack("N", substr($data, 8, 4)),
       'UNKNOWN'  => substr($data, 12, 4),
       'NAME'     => substr($data, 20, $name_len)
     };
@@ -46,25 +46,25 @@ sub new
 
 sub type
 {
-  $_[0]->{'TYPE'} = $_[1]  if(defined($_[1]));
+  $_[0]->{'TYPE'} = $_[1]  if(@_ == 2);
   return $_[0]->{'TYPE'};
 }
 
 sub creator
 {
-  $_[0]->{'CREATOR'} = $_[1]  if(defined($_[1]));
+  $_[0]->{'CREATOR'} = $_[1]  if(@_ == 2);
   return $_[0]->{'CREATOR'};
 }
 
 sub size
 {
-  $_[0]->{'SIZE'} = $_[1]  if(defined($_[1]));
+  $_[0]->{'SIZE'} = $_[1]  if(@_ == 2);
   return $_[0]->{'SIZE'};
 }
 
 sub name
 {
-  $_[0]->{'NAME'} = $_[1]  if(defined($_[1]));
+  $_[0]->{'NAME'} = $_[1]  if(@_ == 2);
   return $_[0]->{'NAME'};
 }
 

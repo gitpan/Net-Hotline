@@ -15,17 +15,18 @@ use Net::Hotline::FileListItem;
 use Net::Hotline::Protocol::Header;
 use Net::Hotline::Shared qw(:all);
 use Net::Hotline::Constants
-  qw(HTLC_DATA_RFLT HTLC_EWOULDBLOCK HTLC_NEWLINE HTLS_DATA_AGREEMENT
-     HTLS_DATA_CHAT HTLS_DATA_COLOR HTLS_DATA_FILE_COMMENT
-     HTLS_DATA_FILE_CREATOR HTLS_DATA_FILE_CTIME HTLS_DATA_FILE_ICON
-     HTLS_DATA_FILE_LIST HTLS_DATA_FILE_MTIME HTLS_DATA_FILE_NAME
-     HTLS_DATA_FILE_SIZE HTLS_DATA_FILE_TYPE HTLS_DATA_HTXF_REF
-     HTLS_DATA_HTXF_SIZE HTLS_DATA_ICON HTLS_DATA_MSG HTLS_DATA_NEWS
-     HTLS_DATA_NEWS_POST HTLS_DATA_NICKNAME HTLS_DATA_SERVER_MSG
-     HTLS_DATA_SOCKET HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO
-     HTLS_DATA_USER_LIST HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
+  qw(HTLC_DATA_PCHAT_SUBJECT HTLC_DATA_RFLT HTLC_EWOULDBLOCK HTLC_NEWLINE
+     HTLS_DATA_AGREEMENT HTLS_DATA_CHAT HTLS_DATA_COLOR
+     HTLS_DATA_FILE_COMMENT HTLS_DATA_FILE_CREATOR HTLS_DATA_FILE_CTIME
+     HTLS_DATA_FILE_ICON HTLS_DATA_FILE_LIST HTLS_DATA_FILE_MTIME
+     HTLS_DATA_FILE_NAME HTLS_DATA_FILE_SIZE HTLS_DATA_FILE_TYPE
+     HTLS_DATA_HTXF_REF HTLS_DATA_HTXF_SIZE HTLS_DATA_ICON HTLS_DATA_MSG
+     HTLS_DATA_NEWS HTLS_DATA_NEWS_POST HTLS_DATA_NICKNAME
+     HTLS_DATA_PCHAT_REF HTLS_DATA_SERVER_MSG HTLS_DATA_SOCKET
+     HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
+     HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
-$VERSION = '0.64';
+$VERSION = '0.65';
 
 sub new
 {
@@ -60,6 +61,8 @@ sub new
     'HTXF_SIZE'    => undef,
     'HTXF_REF'     => undef,
     'HTXF_RFLT'    => undef,
+
+    'PCHAT_REF'    => undef,
 
     'TYPE'         => undef
   };
@@ -98,6 +101,8 @@ sub clear
   $self->{'HTXF_SIZE'}    =
   $self->{'HTXF_REF'}     =
   $self->{'HTXF_RFLT'}    =
+
+  $self->{'PCHAT_REF'}    = 
 
   $self->{'TYPE'} = undef;
 }
@@ -342,13 +347,30 @@ sub read_parse
 
       $self->{'FILE_MTIME'} = unpack("N", $data);
     }
-    elsif($atom_type == HTLS_DATA_MSG       ||
-          $atom_type == HTLS_DATA_NEWS      ||
-          $atom_type == HTLS_DATA_AGREEMENT ||
-          $atom_type == HTLS_DATA_USER_INFO  ||
-          $atom_type == HTLS_DATA_CHAT      ||
-          $atom_type == HTLS_DATA_MSG       ||
-          $atom_type == HTLS_DATA_SERVER_MSG ||
+    elsif($atom_type == HTLS_DATA_PCHAT_REF)
+    {
+      $length -= _read($fh, \$data, $atom_len);
+      
+      _debug("Private chat ref: ", _hexdump($data));
+
+      # Server 1.2.1 gives chat refs in 2 bytes.  Annoying!
+      if($atom_len == 2) 
+      {
+        $self->{'PCHAT_REF'} = unpack("n", $data);
+      }
+      else
+      {
+        $self->{'PCHAT_REF'} = unpack("N", $data);
+      }
+    }
+    elsif($atom_type == HTLS_DATA_MSG           ||
+          $atom_type == HTLS_DATA_NEWS          ||
+          $atom_type == HTLS_DATA_AGREEMENT     ||
+          $atom_type == HTLS_DATA_USER_INFO     ||
+          $atom_type == HTLS_DATA_CHAT          ||
+          $atom_type == HTLC_DATA_PCHAT_SUBJECT ||
+          $atom_type == HTLS_DATA_MSG           ||
+          $atom_type == HTLS_DATA_SERVER_MSG    ||
           $atom_type == HTLS_DATA_NEWS_POST)
     {
       $length -= _read($fh, \$data, $atom_len);

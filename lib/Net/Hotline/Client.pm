@@ -13,6 +13,7 @@ use IO::File;
 use IO::Socket;
 use Net::Hotline::User;
 use Net::Hotline::Task;
+use Net::Hotline::PrivateChat;
 use Net::Hotline::FileListItem;
 use Net::Hotline::FileInfoItem;
 use Net::Hotline::TrackerListItem;
@@ -34,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.64';
+$VERSION = '0.65';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -110,6 +111,7 @@ sub new
     'NEWS'         => undef,
     'FILES'        => undef,
     'AGREEMENT'    => undef,
+    'PCHATS'       => undef,
     'TASKS'        => undef,
 
     'FILE_INFO'    => undef,
@@ -138,6 +140,12 @@ sub new
       'NEWS_POST'     => undef,
       'NEWS_POSTED'   => undef,
       'NICK'          => undef,
+      'PCHAT_ACCEPT'  => undef,
+      'PCHAT_CREATE'  => undef,
+      'PCHAT_INVITE'  => undef,
+      'PCHAT_JOIN'    => undef,
+      'PCHAT_LEAVE'   => undef,
+      'PCHAT_SUBJECT' => undef,
       'QUIT'          => undef,
       'SEND_MSG'      => undef,
       'SERVER_MSG'    => undef,
@@ -263,12 +271,7 @@ sub last_activity
   return $self->{'LAST_ACTIVITY'};
 }
 
-sub news
-{
-  my($self) = shift;
-
-  return $self->{'NEWS'}
-}
+sub news { $_[0]->{'NEWS'} }
 
 sub path_separator
 {
@@ -286,9 +289,9 @@ sub rsrc_fork_extension
   return $self->{'RSRC_FORK_EXT'};
 }
 
-sub server { $_[0]->{'SERVER_ADDR'} }
-
-sub userlist { $_[0]->{'USER_LIST'} }
+sub pchats   { $_[0]->{'PCHATS'}      }
+sub server   { $_[0]->{'SERVER_ADDR'} }
+sub userlist { $_[0]->{'USER_LIST'}   }
 
 sub connect
 {
@@ -886,6 +889,55 @@ sub _process_packet
           }
         }
       }
+      elsif($task_type == HTLC_TASK_PCHAT_CREATE)
+      {
+        my($ref)    = $packet->{'PCHAT_REF'};
+        my($user)   = $self->{'USER_LIST'}->{$packet->{'SOCKET'}};
+        my($pchat)  = $self->{'PCHATS'}->{$ref} = new Net::Hotline::PrivateChat;
+
+        $pchat->reference($ref);
+        $pchat->userlist({ $packet->{'SOCKET'} => $user });
+
+        if($use_handlers)
+        {
+          if(defined($self->{'HANDLERS'}->{'PCHAT_CREATE'}))
+          {
+            &{$self->{'HANDLERS'}->{'PCHAT_CREATE'}}($self, $task, $pchat);
+          }
+          elsif($self->{'DEFAULT_HANDLERS'})
+          {
+            print "CREATE PCHAT($ref): Task complete.\n";
+          }
+        }
+      }
+      elsif($task_type == HTLC_TASK_PCHAT_ACCEPT)
+      {
+        my($ref) = $task->misc();
+
+        my($userlist);
+        
+        # Create userlist of references to the main userlist rather
+        # than new user objects (as returned in the packet)
+        foreach my $socket (keys(%{$packet->{'USER_LIST'}}))
+        {
+          $userlist->{$socket} = $self->{'USER_LIST'}->{$socket};
+        }
+
+        my($pchat)  = $self->{'PCHATS'}->{$ref} =
+          new Net::Hotline::PrivateChat($ref, $userlist);
+        
+        if($use_handlers)
+        {
+          if(defined($self->{'HANDLERS'}->{'PCHAT_ACCEPT'}))
+          {
+            &{$self->{'HANDLERS'}->{'PCHAT_ACCEPT'}}($self, $task, $pchat);
+          }
+          elsif($self->{'DEFAULT_HANDLERS'})
+          {
+            print "ACCEPT PCHAT INVITE($ref): Task complete.\n";
+          }
+        }
+      }
     }
     # Reclaim memory
     delete $self->{'TASKS'}->{$packet->{'TASK_NUM'}};
@@ -1044,33 +1096,69 @@ sub _process_packet
     {
       $packet->{'DATA'} =~ s/^\n//s;
 
-      # Chat "action"
-      if($packet->{'DATA'} =~ /^ \*\*\* /)
+      my($ref) = $packet->{'PCHAT_REF'};
+
+      if($ref) # Priate chat
       {
-        if($use_handlers)
+        # Private chat "action"
+        if($packet->{'DATA'} =~ /^ \*\*\* /)
         {
-          if(defined($self->{'HANDLERS'}->{'CHAT_ACTION'}))
+          if($use_handlers)
           {
-            &{$self->{'HANDLERS'}->{'CHAT_ACTION'}}($self, \$packet->{'DATA'});
+            if(defined($self->{'HANDLERS'}->{'PCHAT_ACTION'}))
+            {
+              &{$self->{'HANDLERS'}->{'PCHAT_ACTION'}}($self, $ref, \$packet->{'DATA'});
+            }
+            elsif($self->{'DEFAULT_HANDLERS'})
+            {
+              print "PCHAT($ref) ACTION: ", $packet->{'DATA'}, "\n";
+            }
           }
-          elsif($self->{'DEFAULT_HANDLERS'})
+        }
+        else # Regular private chat
+        {
+          if($use_handlers)
           {
-            $packet->{'DATA'} =~ s/^@{[HTLC_NEWLINE]}//os;
-            print "CHAT ACTION: ", $packet->{'DATA'}, "\n";
+            if(defined($self->{'HANDLERS'}->{'PCHAT_CHAT'}))
+            {
+              &{$self->{'HANDLERS'}->{'PCHAT_CHAT'}}($self, $ref, \$packet->{'DATA'});
+            }
+            elsif($self->{'DEFAULT_HANDLERS'})
+            {
+              print "PCHAT($ref): ", $packet->{'DATA'}, "\n";
+            }
           }
         }
       }
       else # Regular chat
       {
-        if($use_handlers)
+        # Chat "action"
+        if($packet->{'DATA'} =~ /^ \*\*\* /)
         {
-          if(defined($self->{'HANDLERS'}->{'CHAT'}))
+          if($use_handlers)
           {
-            &{$self->{'HANDLERS'}->{'CHAT'}}($self, \$packet->{'DATA'});
+            if(defined($self->{'HANDLERS'}->{'CHAT_ACTION'}))
+            {
+              &{$self->{'HANDLERS'}->{'CHAT_ACTION'}}($self, \$packet->{'DATA'});
+            }
+            elsif($self->{'DEFAULT_HANDLERS'})
+            {
+              print "CHAT ACTION: ", $packet->{'DATA'}, "\n";
+            }
           }
-          elsif($self->{'DEFAULT_HANDLERS'})
+        }
+        else # Regular chat
+        {
+          if($use_handlers)
           {
-            print "CHAT: ", $packet->{'DATA'}, "\n";
+            if(defined($self->{'HANDLERS'}->{'CHAT'}))
+            {
+              &{$self->{'HANDLERS'}->{'CHAT'}}($self, \$packet->{'DATA'});
+            }
+            elsif($self->{'DEFAULT_HANDLERS'})
+            {
+              print "CHAT: ", $packet->{'DATA'}, "\n";
+            }
           }
         }
       }
@@ -1128,19 +1216,78 @@ sub _process_packet
   }
   elsif($type == HTLS_HDR_PCHAT_INVITE)
   {
-    # To do...
+    if($use_handlers)
+    {
+      if(defined($self->{'HANDLERS'}->{'PCHAT_INVITE'}))
+      {
+        &{$self->{'HANDLERS'}->{'PCHAT_INVITE'}}($self, $packet->{'PCHAT_REF'},
+                                                 $packet->{'SOCKET'},
+                                                 $packet->{'NICK'});
+      }
+      elsif($self->{'DEFAULT_HANDLERS'})
+      {
+        print "PCHAT INVITE($packet->{'PCHAT_REF'}) from $packet->{'NICK'}($packet->{'SOCKET'})",
+              "($packet->{'SOCKET)'})\n";
+      }
+    }
   }
-  elsif($type == HTLS_HDR_PCHAT_USER_CHANGE)
+  elsif($type == HTLS_HDR_PCHAT_USER_JOIN)
   {
-    # To do...
+    my($ref)    = $packet->{'PCHAT_REF'};
+    my($socket) = $packet->{'SOCKET'};
+    my($pchat)  = $self->{'PCHATS'}->{$ref};
+
+    $pchat->userlist()->{$socket} = $self->{'USER_LIST'}->{$socket};
+
+    if($use_handlers)
+    {
+      if(defined($self->{'HANDLERS'}->{'PCHAT_JOIN'}))
+      {
+        &{$self->{'HANDLERS'}->{'PCHAT_JOIN'}}($self, $pchat, $socket);
+      }
+      elsif($self->{'DEFAULT_HANDLERS'})
+      {
+        print "PCHAT($ref)  JOIN($socket)\n";
+      }
+    }
   }
   elsif($type == HTLS_HDR_PCHAT_USER_LEAVE)
   {
-    # To do...
+    my($ref)    = $packet->{'PCHAT_REF'};
+    my($socket) = $packet->{'SOCKET'};
+    my($pchat)  = $self->{'PCHATS'}->{$ref};
+
+    delete $pchat->userlist()->{$socket};
+
+    if($use_handlers)
+    {
+      if(defined($self->{'HANDLERS'}->{'PCHAT_LEAVE'}))
+      {
+        &{$self->{'HANDLERS'}->{'PCHAT_LEAVE'}}($self, $pchat, $socket);
+      }
+      elsif($self->{'DEFAULT_HANDLERS'})
+      {
+        print "PCHAT($ref)  LEAVE($socket)\n";
+      }
+    }
   }
   elsif($type == HTLS_HDR_PCHAT_SUBJECT)
   {
-    # To do...
+    my($pchat) = $self->{'PCHATS'}->{$packet->{'PCHAT_REF'}};
+    
+    $pchat->subject($packet->{'DATA'});
+
+    if($use_handlers)
+    {
+      if(defined($self->{'HANDLERS'}->{'PCHAT_SUBJECT'}))
+      {
+        &{$self->{'HANDLERS'}->{'PCHAT_SUBJECT'}}($self, $pchat, \$packet->{'DATA'});
+      }
+      elsif($self->{'DEFAULT_HANDLERS'})
+      {
+        print "PCHAT(", $pchat->reference(), ") Subject set to: $packet->{'DATA'}\n";
+      }
+    }
   }
 
   return(1);
@@ -1191,6 +1338,14 @@ sub news_handler          { return _handler($_[0], $_[1], 'NEWS')          }
 sub post_news_handler     { return _handler($_[0], $_[1], 'NEWS_POST')     }
 sub news_posted_handler   { return _handler($_[0], $_[1], 'NEWS_POSTED')   }
 sub nick_handler          { return _handler($_[0], $_[1], 'NICK')          }
+sub pchat_accept_handler  { return _handler($_[0], $_[1], 'PCHAT_ACCEPT')  }
+sub pchat_action_handler  { return _handler($_[0], $_[1], 'PCHAT_ACTION')  }
+sub pchat_chat_handler    { return _handler($_[0], $_[1], 'PCHAT_CHAT')    }
+sub pchat_create_handler  { return _handler($_[0], $_[1], 'PCHAT_CREATE')  }
+sub pchat_invite_handler  { return _handler($_[0], $_[1], 'PCHAT_INVITE')  }
+sub pchat_join_handler    { return _handler($_[0], $_[1], 'PCHAT_JOIN')    }
+sub pchat_leave_handler   { return _handler($_[0], $_[1], 'PCHAT_LEAVE')   }
+sub pchat_subject_handler { return _handler($_[0], $_[1], 'PCHAT_SUBJECT') }
 sub quit_handler          { return _handler($_[0], $_[1], 'QUIT')          }
 sub send_msg_handler      { return _handler($_[0], $_[1], 'SEND_MSG')      }
 sub server_msg_handler    { return _handler($_[0], $_[1], 'SERVER_MSG')    }
@@ -1306,6 +1461,8 @@ sub req_filelist { al06_req_filelist(@_) }
 # _al08_get_file_resume
 # _al09_file_action_packet_stub
 # _al10_post_news_now
+# _al11_pchat_invite_now
+# _al12_pchat_accept_now
 
 __END__
 
@@ -3041,7 +3198,7 @@ sub _msg_now
 
   my($task, $task_num, $packet);
 
-  $task_num = $self->kick($user_or_socket, @message);
+  $task_num = $self->_msg($user_or_socket, @message);
   $task = $self->{'TASKS'}->{$task_num};
 
   return  unless($task_num);
@@ -3085,14 +3242,14 @@ sub _msg
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0002) .                 # Num atoms
+          pack("n7", 0x0002,                  # Num atoms
 
-          pack("n", HTLC_DATA_SOCKET) .       # Atom type
-          pack("n", 0x0002) .                 # Atom length
-          pack("n", $socket) .                # Atom data
+                     HTLC_DATA_SOCKET,        # Atom type
+                     0x0002,                  # Atom length
+                     $socket,                 # Atom data
 
-          pack("n", HTLC_DATA_MSG) .          # Atom type
-          pack("n", length($message)) .       # Atom length
+                     HTLC_DATA_MSG,           # Atom type
+                    length($message)) .       # Atom length
           $message;                           # Atom data
 
   _debug(_hexdump($data));
@@ -3133,14 +3290,14 @@ sub chat_action
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0002) .                 # Num atoms
+          pack("n6", 0x0002,                  # Num atoms
 
-          pack("n", HTLC_DATA_OPTION) .       # Atom type
-          pack("n", 0x0002) .                 # Atom length
-          pack("n", 0x0001) .                 # Atom data
+                     HTLC_DATA_OPTION,        # Atom type
+                     0x0002,                  # Atom length
+                     0x0001,                  # Atom data
 
-          pack("n", HTLC_DATA_CHAT) .         # Atom type
-          pack("n", length($message)) .       # Atom length
+                     HTLC_DATA_CHAT,          # Atom type
+                     length($message)) .      # Atom length
           $message;                           # Atom data
 
   _debug(_hexdump($data));
@@ -3175,10 +3332,10 @@ sub chat
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0001) .                 # Num atoms
+          pack("n3", 0x0001,                  # Num atoms
 
-          pack("n", HTLC_DATA_CHAT) .         # Atom type
-          pack("n", length($message)) .       # Atom length
+                     HTLC_DATA_CHAT,          # Atom type
+                     length($message)) .      # Atom length
           $message;                           # Atom data
 
   _debug(_hexdump($data));
@@ -4059,3 +4216,394 @@ sub tracker_list
 
   return (wantarray) ? @servers : \@servers;
 }
+
+sub pchat_invite
+{
+  my($self, $socket, $ref) = @_;
+
+  if($self->{'BLOCKING_TASKS'})
+  {
+    return $self->_al11_pchat_invite_now($socket, $ref);
+  }
+  else
+  {
+    return $self->_pchat_invite($socket, $ref);
+  }
+}
+
+sub _al11_pchat_invite_now
+{
+  my($self, $socket, $ref) = @_;
+
+  my($task, $task_num, $packet);
+
+  $task_num = $self->_pchat_invite($socket, $ref);
+  $task = $self->{'TASKS'}->{$task_num};
+
+  return(1)  if(defined($ref));
+
+  return  unless($task_num);
+
+  $packet = _blocking_task($self, $task_num);
+
+  if($task->error())
+  {
+    $self->{'LAST_ERROR'} = $task->error_text();
+    return;
+  }
+
+  return(1);
+}
+
+sub _pchat_invite
+{
+  my($self, $socket, $ref) = @_;
+
+  my($data, $proto_header, $length, $task_num, $create);
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened());
+
+  $create = defined($ref);
+
+  # 8 bytes for socket atom + 6 or 8 bytes for pchat ref atom (optional)
+  $length = 8 + (defined($ref)) ? (($ref > 0xFFFF) ? 8 : 6) : 0;
+
+  $proto_header = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(($create) ? HTLC_HDR_PCHAT_CREATE :
+                                  HTLC_HDR_PCHAT_INVITE);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len($length);
+  $proto_header->len2($proto_header->len);
+
+  $data = $proto_header->header();
+
+  # Socket of the user we're inviting
+  $data .= pack("nnnn", ($create) ? 2 : 1,    # Num atoms
+                        HTLC_DATA_SOCKET,     # Atom type
+                        0x0002,               # Atom length
+                        $socket);             # Atom value
+
+  unless($create)
+  {
+    my($fmt) = ($ref > 0xFFFF) ? "nnN" : "nnn";
+
+    # Private chat reference number
+    $data .= pack($fmt, HTLC_DATA_PCHAT_REF,  # Atom type
+                       ($ref > 0xFFFF) ? 4 :2,# Atom length
+                       $ref);                 # Atom value
+  }
+
+  _debug(_hexdump($data));
+
+  $task_num = $proto_header->seq();
+
+  if($create)
+  {
+    if(_hlc_write($self, $server, \$data, length($data)))
+    {
+      _debug("NEW TASK: PCHAT INVITE/CREATE - $task_num\n");
+      $self->{'TASKS'}->{$task_num} =
+        new Net::Hotline::Task($task_num,HTLC_TASK_PCHAT_CREATE, time());
+    }
+    else { return }
+
+    return($task_num);
+  }
+  else
+  {
+    if(_hlc_write($self, $server, \$data, length($data)))
+    {
+      _debug("PCHAT INVITE SOCKET($socket) TO PCHAT($ref)\n");
+      return(1);
+    }
+    else { return }
+  }
+}
+
+sub pchat_accept
+{
+  my($self, $ref) = @_;
+
+  if($self->{'BLOCKING_TASKS'})
+  {
+    return $self->_al12_pchat_accept_now($ref);
+  }
+  else
+  {
+    return $self->_pchat_accept($ref);
+  }
+}
+
+sub _al12_pchat_accept_now
+{
+  my($self, $ref) = @_;
+
+  my($task, $task_num, $packet);
+
+  $task_num = $self->_pchat_accept($ref);
+  $task = $self->{'TASKS'}->{$task_num};
+
+  return  unless($task_num);
+
+  $packet = _blocking_task($self, $task_num);
+
+  if($task->error())
+  {
+    $self->{'LAST_ERROR'} = $task->error_text();
+    return;
+  }
+
+  return(1);
+}
+
+sub _pchat_accept
+{
+  my($self, $ref) = @_;
+
+  my($data, $proto_header, $task_num);
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened() && defined($ref));
+
+  $proto_header = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_PCHAT_ACCEPT);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len(($ref > 0xFFFF) ? 10 : 8);
+  $proto_header->len2($proto_header->len);
+
+  $data = $proto_header->header();
+
+  my($fmt) = ($ref > 0xFFFF) ? "nnnN" : "nnnn";
+
+  # Pchat ref number atom
+  $data .= pack($fmt, 0x0001,                 # Num atoms
+                      HTLC_DATA_PCHAT_REF,    # Atom type
+                      ($ref > 0xFFFF) ? 4 : 2,# Atom length
+                      $ref);                  # Atom value
+
+  _debug(_hexdump($data));
+
+  $task_num = $proto_header->seq();
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    _debug("NEW TASK: PCHAT ACCEPT($ref) - $task_num\n");
+    $self->{'TASKS'}->{$task_num} =
+      new Net::Hotline::Task($task_num, HTLC_TASK_PCHAT_ACCEPT, time(), undef, undef, $ref);
+  }
+  else { return }
+
+  return($task_num);
+}
+
+sub pchat_decline
+{
+  my($self, $ref) = @_;
+
+  my($data, $proto_header, $task_num, $length);
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened() && defined($ref));
+
+  $proto_header = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_PCHAT_DECLINE);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len(($ref > 0xFFFF) ? 10 : 8);
+  $proto_header->len2($proto_header->len);
+
+  $data = $proto_header->header();
+
+  my($fmt) = ($ref > 0xFFFF) ? "nnnN" : "nnnn";
+
+  # Pchat ref number atom
+  $data .= pack($fmt, 0x0001,                 # Num atoms
+                      HTLC_DATA_PCHAT_REF,    # Atom type
+                      ($ref > 0xFFFF) ? 4 : 2,# Atom length
+                      $ref);                  # Atom value
+
+  _debug(_hexdump($data));
+
+  $task_num = $proto_header->seq();
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    return(1);
+  }
+  else { return }
+}
+
+sub pchat_action
+{
+  my($self, $ref, @message) = @_;
+
+  my($message) = join('', @message);
+
+  $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened() && defined($ref));
+
+  my($data);
+
+  my($proto_header) = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_CHAT);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len((($ref > 0xFFFF) ? 20 : 18) + length($message));
+  $proto_header->len2($proto_header->len);
+
+  my($fmt) = ($ref > 0xFFFF) ? "n6Nnn" : "n9";
+
+  $data = $proto_header->header() .
+          pack($fmt, 0x0003,                  # Num atoms
+
+                     HTLC_DATA_OPTION,        # Atom type
+                     0x0002,                  # Atom length
+                     0x0001,                  # Atom data
+
+                     HTLC_DATA_PCHAT_REF,     # Atom type
+                     ($ref > 0xFFFF) ? 4 : 2, # Atom length
+                     $ref,                    # Atom value
+
+                     HTLC_DATA_CHAT,          # Atom type
+                     length($message)) .      # Atom length
+          $message;                           # Atom data
+
+  _debug(_hexdump($data));
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    return(1);
+  }
+  else { return }
+}
+
+sub pchat
+{
+  my($self, $ref, @message) = @_;
+
+  my($message) = join('', @message);
+
+  $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened() && defined($ref));
+
+  my($data);
+
+  my($proto_header) = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_CHAT);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len((($ref > 0xFFFF) ? 14 : 12) + length($message));
+  $proto_header->len2($proto_header->len);
+
+  my($fmt) = ($ref > 0xFFFF) ? "n3Nnn" : "n6";
+
+  $data = $proto_header->header() .
+          pack($fmt, 0x0002,                  # Num atoms
+
+                     HTLC_DATA_PCHAT_REF,     # Atom type
+                     ($ref > 0xFFFF) ? 4 : 2, # Atom length
+                     $ref,                    # Atom value
+
+                     HTLC_DATA_CHAT,          # Atom type
+                     length($message)) .      # Atom length
+          $message;                           # Atom data
+
+  _debug(_hexdump($data));
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    return(1);
+  }
+  else { return }
+}
+
+sub pchat_leave
+{
+  my($self, $ref) = @_;
+
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened() && defined($ref));
+
+  my($data);
+
+  my($proto_header) = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_PCHAT_CLOSE);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len(($ref > 0xFFFF) ? 10 : 8);
+  $proto_header->len2($proto_header->len);
+
+  my($fmt) = ($ref > 0xFFFF) ? "n3N" : "n4";
+
+  $data = $proto_header->header() .
+          pack($fmt, 0x0001,                  # Num atoms
+
+                     HTLC_DATA_PCHAT_REF,     # Atom type
+                     ($ref > 0xFFFF) ? 4 : 2, # Atom length
+                     $ref);                   # Atom value
+
+  _debug(_hexdump($data));
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    delete $self->{'PCHATS'}->{$ref};
+    return(1);
+  }
+  else { return }
+}
+
+sub pchat_subject
+{
+  my($self, $ref, @subject) = @_;
+  
+  my($server) = $self->{'SERVER'};
+  return  unless($server->opened() && defined($ref));
+
+  my($subject) = join('', @subject);
+
+  my($data);
+
+  my($proto_header) = new Net::Hotline::Protocol::Header;
+
+  $proto_header->type(HTLC_HDR_PCHAT_SUBJECT);
+  $proto_header->seq($self->_next_seqnum());
+  $proto_header->task(0x00000000);
+  $proto_header->len((($ref > 0xFFFF) ? 14 : 12) + length($subject));
+  $proto_header->len2($proto_header->len);
+
+  my($fmt) = ($ref > 0xFFFF) ? "n3Nnn" : "n6";
+
+  $data = $proto_header->header() .
+          pack($fmt, 0x0002,                  # Num atoms
+
+                     HTLC_DATA_PCHAT_REF,     # Atom type
+                     ($ref > 0xFFFF) ? 4 : 2, # Atom length
+                     $ref,                    # Atom value
+
+                     HTLC_DATA_PCHAT_SUBJECT, # Atom type
+                     length($subject)) .      # Atom length
+          $subject;                           # Atom value
+
+  _debug(_hexdump($data));
+
+  if(_hlc_write($self, $server, \$data, length($data)))
+  {
+    return(1);
+  }
+  else { return }
+}
+
+1;

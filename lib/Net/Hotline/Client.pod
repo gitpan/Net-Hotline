@@ -36,11 +36,11 @@ PC versions are available)
 
 The Hotline protocol is not public. (An RFC?  I wish!)  This module got its
 start with the aid of the C source code from the Unix "hx" Hotline client
-written by Ryan Nielsen, the beginnings of a Java Hotline bot written by
-Gary Wong, and many hours spent staring at hexdumps of network data. Some
-features are still not yet implemented, the most notable being private chat
-and user administration capabilities.  Finally, I'm sure all hell will
-break loose with the next major revision of Hotline.  Such is life.
+written by Ryan Nielsen, the beginnings of a Java Hotline bot written by Gary
+Wong, and many hours spent staring at hexdumps of network data. Some features
+are still not implemented, the most notable being user administration
+capabilities.  Finally, I'm sure all hell will break loose with the next major
+revision of Hotline.  Such is life.
 
 =head1 GETTING STARTED
 
@@ -255,19 +255,19 @@ size.  The default is 4096 bytes.
 
 =head2 COMMANDS
 
-Most of the methods in this section are treated as "tasks" by Hotline.
-Their status (start time, finish time, error state, etc.) is tracked
-internally by task number.  In event mode, they return a task number if the
-request was sent successfully, and undef if an error occurred.  In blocking
-task mode, the return values vary.
+Unless otherwise specified, the methods in this section are treated as "tasks"
+by Hotline. Their status (start time, finish time, error state, etc.) is
+tracked internally by task number.  In event mode, they return a task number
+if the request was sent successfully, and undef or an empty list if an error
+occurred.  In blocking task mode, the return values vary.
 
-C<chat()> is a special case in that it is not treated as a "task" by
-Hotline. Even in event mode, it returns 1 on success instead of a task
-number.  The actual completion of a chat command can only be determined by
+Some commands (like C<chat()> and C<pchat()>, for example) are not treated as
+"tasks" by Hotline. They always return 1 on success, rather than a task
+number.  The actual completion of a such commands can only be determined by
 examining the resulting data from the server.  For example, if you
-C<chat("hello")>, you can look for that line of chat in your chat handler. 
-This is rarely necessary since the failure of a C<chat()> command usually
-means that you have much bigger problems.
+C<chat("hello")>, you can look for that line of chat in your chat handler.
+(This is rarely necessary since the failure of such a command usually means
+that you have much bigger problems.)
 
 =over 4
 
@@ -276,6 +276,17 @@ means that you have much bigger problems.
 Sends the text formed by the concatenation of LIST to the server as "chat."
 Perl newlines ("\n") are translated to Net::Hotline::Constants::HTLC_NEWLINE,
 which is Hotline's native newline character.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
+
+=item chat_action LIST
+
+Sends the text formed by the concatenation of LIST to the server as a "chat
+action."  Perl newlines ("\n") are translated to
+Net::Hotline::Constants::HTLC_NEWLINE, which is Hotline's native newline
+character.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
 
 =item comment PATH, TEXT
 
@@ -453,14 +464,74 @@ successfully, or undef if an error occurred.
 
 Sets your nickname in the userlist to TEXT.
 
+=item pchat REF, LIST
+
+Sends the text formed by the concatenation of LIST to the private chat window
+specified by REF.  Perl newlines ("\n") are translated to
+Net::Hotline::Constants::HTLC_NEWLINE, which is Hotline's native newline
+character.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
+
+=item pchat_action REF, LIST
+
+Sends the text formed by the concatenation of LIST to the private chat window
+specified by REF as a "chat action".  Perl newlines ("\n") are translated to
+Net::Hotline::Constants::HTLC_NEWLINE, which is Hotline's native newline
+character.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
+
+=item pchat_accept REF
+
+Accepts an invitaton to the private chat sepcified by REF.
+
+In blocking task mode, returns 1 on success.  In event loop mode, returns a
+task number if the request was sent successfully.  In both modes, it returns
+undef or an empty list if an error occurred.
+
+=item pchat_decline REF
+
+Declines an invitaton to the private chat sepcified by REF.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
+
+=item pchat_invite SOCKET, REF
+
+Invite the user specified by SOCKET to an existing private chat specfied by
+REF, or create a new private chat if REF is not given.  There is no
+C<pchat_create()> command.  To create a new private chat, you must invite
+someone.  Call C<pchat_invite()> with your own socket number and no REF
+argument to create a new private chat with only yourself in it (you will 
+not have to explicitly accept this invitation).
+
+In blocking task mode, returns 1 on success, and undef or an empty list
+if an error occurred.
+
+In event mode, it returns a task number if it had to create a new private chat
+(i.e. if no REF argument was given) or 1 (if inviting to an existing private
+chat) on success, and undef or an empty list if an error occurred.
+
+=item pchat_leave REF
+
+Leave the private chat specified by REF.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
+
+=item pchat_subject REF, TEXT
+
+Sets the subject of the private chat specified by REF to TEXT.
+
+Not treated as a task: returns 1 on success, undef or an empty list on failure.
+
 =item post_news LIST
 
 Sends the text formed by the concatenation of LIST to the server as a
 news post.
 
-In blocking task mode, returns 1 on success or undef if an error occurred.
-In event loop mode, returns a task number if the request was sent
-successfully, or undef if an error occurred.
+In blocking task mode, returns 1 on success.  In event loop mode, returns a
+task number if the request was sent successfully.  In both modes, it returns
+undef or an empty list if an error occurred.
 
 =item put_file SRC_PATH, DEST_PATH, COMMENT
 
@@ -588,7 +659,7 @@ supplied to the C<put_file()> handler routine (in event loop mode). Returns
 
 =item tracker_list TIMEOUT
 
-Connects to the server set via the C<tracker()> method and retreives the
+Connects to the server set via the C<tracker()> method and retrieves the
 list of servers tracked by that tracker.  Returns an array (in array
 context) or a reference to an array (in scalar context) of
 Net::Hotline::TrackerListItem objects on success, and undef or an empty
@@ -598,7 +669,7 @@ The initial connection to the tracker will timeout after TIMEOUT seconds,
 or the current value set via C<connection_timeout()> if TIMEOUT is omitted.
 A TIMEOUT value of zero will disable the timeout.
 
-Note that this method does not return until it has retreived the list of
+Note that this method does not return until it has retrieved the list of
 tracked servers, and that the timeout applies B<only> to the initial
 connection to the tracker.  It is often the case with overloaded trackers
 that this method will hang when writing to or reading from the tracker
@@ -712,6 +783,12 @@ Returns true if currently logged into a server.
 Returns a reference to an array of news posts, or undef if the news has not
 yet been requested or is empty.
 
+=item pchats
+
+Returns a reference to a hash of Net::Hotline::PrivateChat objects, keyed by
+reference number, that represent all the private chats that the client is
+currently engaged in, or undef or an empty list if not in any private chats.
+
 =item server
 
 Returns the address of the server currently connected to as a hostname or
@@ -780,6 +857,12 @@ references or undef.  Event types are as follows:
     NEWS           News received.
     NEWS_POSTED    A news post was made by another user.
     NICK           A user changed nickname in the userlist.
+    PCHAT_CHAT     New private chat appeared.
+    PCHAT_ACTION   A new private chat action appeared.
+    PCHAT_INVITE   An invitation to private chat arrived.
+    PCHAT_JOIN     A user joined a private chat.
+    PCHAT_LEAVE    A user left a private chat.
+    PCHAT_SUBJECT  Private chat subject changed.
     QUIT           The server was shutdown politely.
     SERVER_MSG     A server message arrived.
 
@@ -796,6 +879,8 @@ references or undef.  Event types are as follows:
     KICK           Disconnect user task completed.
     LOGIN          Login task completed.
     NEWS_POST      News post task completed.
+    PCHAT_ACCEPT   You have joined a private chat.
+    PCHAT_CREATE   New private chat created.
     SEND_MSG       Private message sent.
     TASK_ERROR     A task error ocurred.
     USER_GETINFO   User information received.
@@ -909,6 +994,52 @@ A user changed nickname in the userlist.
     OLD_NICK    The user's previous nickname.
     NEW_NICK    The user's new nickname.
 
+=item pchat_action_handler (SELF, REF, TEXT)
+
+A new private chat action appeared.
+
+    REF         Private chat reference number.
+    TEXT        Reference to the chat action text.
+
+=item pchat_chat_handler (SELF, REF, TEXT)
+
+New private chat appeared.
+
+    REF         Private chat reference number.
+    TEXT        Reference to the chat text.
+
+=item pchat_invite_handler (SELF, REF, SOCKET, NICK)
+
+An invitation to private chat arrived.
+
+    REF         Private chat reference number.
+    SOCKET      Socket number of the inviting user.
+    NICK        Nick of the inviting user.
+
+=item pchat_join_handler (SELF, PCHAT, SOCKET)
+
+A user joined a private chat.
+
+    PCHAT       A Net::Hotline::PrivateChat object.
+    SOCKET      Socket number of the joining user.
+
+=item pchat_leave_handler (SELF, PCHAT, SOCKET)
+
+A user left a private chat.
+
+    PCHAT       A Net::Hotline::PrivateChat object.
+    SOCKET      Socket number of the leaving user.
+
+Note that the user who left will no longer be in the private chat object's
+userlist.
+
+=item pchat_subject_handler (SELF, REF, TEXT)
+
+Private chat subject changed.
+
+    REF         Private chat reference number.
+    TEXT        Reference to the subject text.
+
 =item quit_handler CODE (SELF, TEXT)
 
 The server was shutdown politely.
@@ -989,6 +1120,25 @@ New folder created.
 The news has arrived and is now available via the C<news()> method.
 
     TASK        A Net::Hotline::Task object.
+
+=item pchat_accept_handler (SELF, TASK, PCHAT)
+
+You have joined a private chat.
+
+    TASK        A Net::Hotline::Task object.
+    PCHAT       A Net::Hotline::PrivateChat object.
+
+=item pchat_create (SELF, TASK, PCHAT)
+
+New private chat created.
+
+    TASK        A Net::Hotline::Task object.
+    PCHAT       A Net::Hotline::PrivateChat object.
+
+Note that you do not have to save the private chat object yourself.  The
+client object keeps track of all private chats it is currently engaged in (the
+list is accessible via the C<pchats()> method), updates the userlists as users
+join and leave, and deletes the objects when you leave the private chat.
 
 =item post_news_handler CODE (SELF, TASK)
 

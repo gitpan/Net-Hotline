@@ -12,6 +12,8 @@ lib/Net/Hotline/FileInfoItem.pm
 lib/Net/Hotline/FileInfoItem.pod
 lib/Net/Hotline/FileListItem.pm
 lib/Net/Hotline/FileListItem.pod
+lib/Net/Hotline/PrivateChat.pm
+lib/Net/Hotline/PrivateChat.pod
 lib/Net/Hotline/Shared.pm
 lib/Net/Hotline/Task.pm
 lib/Net/Hotline/Task.pod
