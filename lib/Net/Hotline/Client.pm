@@ -1,6 +1,6 @@
 package Net::Hotline::Client;
 
-## Copyright(c) 1998-2000 by John C. Siracusa.  All rights reserved.  This
+## Copyright(c) 1998-2001 by John C. Siracusa.  All rights reserved.  This
 ## program is free software; you can redistribute it and/or modify it under
 ## the same terms as Perl itself.
 
@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.78';
+$VERSION = '0.79';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)

@@ -1,6 +1,6 @@
 package Net::Hotline::User;
 
-## Copyright(c) 1998-2000 by John C. Siracusa.  All rights reserved.  This
+## Copyright(c) 1998-2001 by John C. Siracusa.  All rights reserved.  This
 ## program is free software; you can redistribute it and/or modify it under
 ## the same terms as Perl itself.
 
@@ -8,7 +8,7 @@ use strict;
 
 use vars qw($VERSION);
 
-$VERSION = '0.78';
+$VERSION = '0.79';
 
 sub new
 {
@@ -63,7 +63,7 @@ sub new
 
 sub socket
 {
-  $_[0]->{'SOCKET'} = $_[1]  if($_[1] =~ /^\d+$/);
+  $_[0]->{'SOCKET'} = $_[1]  if(@_ > 1 && $_[1] =~ /^\d+$/);
   return $_[0]->{'SOCKET'};
 }
 
@@ -81,13 +81,13 @@ sub login
 
 sub icon
 {
-  $_[0]->{'ICON'} = $_[1]  if($_[1] =~ /^-?\d+$/);
+  $_[0]->{'ICON'} = $_[1]  if(@_ > 1 && $_[1] =~ /^-?\d+$/);
   return $_[0]->{'ICON'};
 }
 
 sub color
 {
-  $_[0]->{'COLOR'} = $_[1]  if($_[1] =~ /^\d+$/);
+  $_[0]->{'COLOR'} = $_[1]  if(@_ > 1 && $_[1] =~ /^\d+$/);
   return $_[0]->{'COLOR'};
 }
 

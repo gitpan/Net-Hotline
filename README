@@ -16,8 +16,7 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.78 fixes a problem with uploading to servers on non-standard
-ports.  See the "Changes" file for more details.
+Version 0.79 fixes a few lines that caused warnings under -w.
 
 INSTALLATION
 
@@ -76,6 +75,6 @@ Send problems and/or praise to John C. Siracusa (siracusa@mindspring.com)
 
 COPYRIGHT
 
-Copyright(c) 1998-2000 by John C. Siracusa.  All rights reserved.  This
+Copyright(c) 1998-2001 by John C. Siracusa.  All rights reserved.  This
 program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

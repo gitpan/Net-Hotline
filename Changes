@@ -1,5 +1,9 @@
 Revision history for Net::Hotline
 
+0.79 (03.17.2001) - John Siracusa <siracusa@mindspring.com>
+
+    * Minor fixes to make -w happier, courtesy of Rodney Gordon II.
+
 0.78 (02.12.2000) - John Siracusa <siracusa@mindspring.com>
 
     * Fixed port number when uploading to servers on non-standard
