@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.81';
+$VERSION = '0.82';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -423,7 +423,7 @@ sub _login
   my($nick, $login, $password, $icon, $enc_login, $enc_password,
      $proto_header, $data, $response, $task_num, $server);
 
-  $server = $self->{'SERVER'};
+  $server = $self->{'SERVER'} or croak "Not connected to a server";
 
   unless($server->opened())
   {
@@ -516,7 +516,7 @@ sub run
 {
   my($self) = shift;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'}  or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($ret, $packet);
@@ -1554,7 +1554,7 @@ sub al06_req_filelist
 {
   my($self, $path) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data, $task_num, @path_parts, $path_part, $data_length, $length,
@@ -1658,7 +1658,7 @@ sub req_userinfo
 {
   my($self, $socket) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data, $task_num);
@@ -1850,7 +1850,7 @@ sub _put_file
 {
   my($self, $src_path, $dest_path, $comments) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   croak("Not connected.")  unless($server->opened());
 
   unless(-e $src_path)
@@ -2006,7 +2006,7 @@ sub _al06_put_file_resume
 {
   my($self, $src_path, $dest_path, $comments) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   croak("Not connected.")  unless($server->opened());
 
   unless(-e $src_path)
@@ -2231,7 +2231,7 @@ sub _al08_get_file_resume
 {
   my($self, $path) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   croak("Not connected.")  unless($server->opened());
 
   my($local_sep, $remote_sep, $dest_dir, $data, $more_data, $task_num,
@@ -2422,7 +2422,7 @@ sub _file_action_simple
 {
   my($self, $path, $type, $task_type, $task_name) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && length($path));
 
   my($data, $task_num) = _al09_file_action_stub($self, $path, $type);
@@ -2479,7 +2479,7 @@ sub _move
 {
   my($self, $src_path, $dest_path) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && length($src_path)  && length($dest_path));
 
   my($data, $task_num, $length, $num_atoms);
@@ -2712,7 +2712,7 @@ sub _change_file_info
 {
   my($self, $path, $name, $comments) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data, $task_num, @path_parts, $length, $save_path, $file,
@@ -2879,7 +2879,7 @@ sub _post_news
 {
   my($self, @post) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($post) = join('', @post);
@@ -2948,7 +2948,7 @@ sub req_news
 {
   my($self) = shift;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data, $task_num);
@@ -3035,7 +3035,7 @@ sub _update_user
 {
   my($self, $icon, $nick) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data);
@@ -3097,7 +3097,7 @@ sub al05_req_userlist
 {
   my($self) = shift;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data, $task_num);
@@ -3167,7 +3167,7 @@ sub _kick
 {
   my($self, $user_or_socket) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($socket, $task_num);
@@ -3247,7 +3247,7 @@ sub _ban
 {
   my($self, $user_or_socket) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($socket, $task_num);
@@ -3335,7 +3335,7 @@ sub _msg
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($socket);
@@ -3388,7 +3388,7 @@ sub chat_action
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data);
@@ -3430,7 +3430,7 @@ sub chat
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   my($data);
@@ -4416,7 +4416,7 @@ sub _pchat_invite
 
   my($data, $proto_header, $length, $task_num, $create);
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened());
 
   $create = defined($ref);
@@ -4520,7 +4520,7 @@ sub _pchat_accept
 
   my($data, $proto_header, $task_num);
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && defined($ref));
 
   $proto_header = new Net::Hotline::Protocol::Header;
@@ -4562,7 +4562,7 @@ sub pchat_decline
 
   my($data, $proto_header, $task_num, $length);
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && defined($ref));
 
   $proto_header = new Net::Hotline::Protocol::Header;
@@ -4602,7 +4602,7 @@ sub al07_pchat_action
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && defined($ref));
 
   my($data);
@@ -4649,7 +4649,7 @@ sub pchat
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && defined($ref));
 
   my($data);
@@ -4688,7 +4688,7 @@ sub pchat_leave
 {
   my($self, $ref) = @_;
 
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && defined($ref));
 
   my($data);
@@ -4724,7 +4724,7 @@ sub pchat_subject
 {
   my($self, $ref, @subject) = @_;
   
-  my($server) = $self->{'SERVER'};
+  my($server) = $self->{'SERVER'} or croak "Not connected to a server";
   return  unless($server->opened() && defined($ref));
 
   my($subject) = join('', @subject);
