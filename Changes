@@ -1,5 +1,10 @@
 Revision history for Net::Hotline
 
+0.76 (01.03.2000) - John Siracusa <siracusa@mindspring.com>
+
+    * Removed redundant timeout parameter in IO::Socket call,
+      thanks to Les Brown <Les@hotlinecentral.com>
+
 0.75 (11.09.1999) - John Siracusa <siracusa@mindspring.com>
 
     * Bug fix in tracker_list() thanks to Les Brown <Les@hotlinecentral.com>

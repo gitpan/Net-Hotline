@@ -1,6 +1,6 @@
 package Net::Hotline::Shared;
 
-## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## Copyright(c) 1998-2000 by John C. Siracusa.  All rights reserved.  This
 ## program is free software; you can redistribute it and/or modify it under
 ## the same terms as Perl itself.
 
@@ -17,7 +17,7 @@ require Exporter;
 @EXPORT_OK = qw(_encode _write _read _hexdump _debug _set_blocking);
 %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-$VERSION = '0.75';
+$VERSION = '0.76';
 
 sub _debug
 {

@@ -16,8 +16,8 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.74 fixes the download of files greater than 31 characters in
-Mac OS. See the "Changes" file for more details.
+Version 0.76 fixes a bug in the connect() method.  See the "Changes" file
+for more details.
 
 INSTALLATION
 
@@ -51,7 +51,7 @@ Here are a few common variations on that theme:
   lines are:
 
           31: use AutoLoader 'AUTOLOAD';
-        1477: __END__
+        1476: __END__
 
   Just add a "#" character to the beginning of those lines.
 
@@ -76,6 +76,6 @@ Send problems and/or praise to John C. Siracusa (siracusa@mindspring.com)
 
 COPYRIGHT
 
-Copyright(c) 1999 by John C. Siracusa.  All rights reserved.  This program is
-free software; you can redistribute it and/or modify it under the same terms
-as Perl itself.
+Copyright(c) 1999-2000 by John C. Siracusa.  All rights reserved.  This
+program is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.

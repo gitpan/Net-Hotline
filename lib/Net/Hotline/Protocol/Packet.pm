@@ -1,6 +1,6 @@
 package Net::Hotline::Protocol::Packet;
 
-## Copyright(c) 1998-1999 by John C. Siracusa.  All rights reserved.  This
+## Copyright(c) 1998-2000 by John C. Siracusa.  All rights reserved.  This
 ## program is free software; you can redistribute it and/or modify it under
 ## the same terms as Perl itself.
 
@@ -26,7 +26,7 @@ use Net::Hotline::Constants
      HTLS_DATA_TASK_ERROR HTLS_DATA_USER_INFO HTLS_DATA_USER_LIST
      HTLS_HDR_TASK SIZEOF_HL_PROTO_HDR);
 
-$VERSION = '0.75';
+$VERSION = '0.76';
 
 sub new
 {
