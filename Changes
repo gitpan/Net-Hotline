@@ -1,5 +1,10 @@
 Revision history for Net::Hotline
 
+0.80 (07.22.2001) - John Siracusa <siracusa@mindspring.com>
+
+    * Fixed recursion bugs in kick() and ban() in Client.pm
+      Patch provided by Ragnar Hojland Espinosa.
+
 0.79 (03.17.2001) - John Siracusa <siracusa@mindspring.com>
 
     * Minor fixes to make -w happier, courtesy of Rodney Gordon II.

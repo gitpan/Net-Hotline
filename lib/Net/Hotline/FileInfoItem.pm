@@ -8,7 +8,7 @@ use strict;
 
 use vars qw($VERSION);
 
-$VERSION = '0.79';
+$VERSION = '0.80';
 
 sub new
 {

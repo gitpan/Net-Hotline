@@ -34,7 +34,7 @@ use AutoLoader 'AUTOLOAD';
 # Class attributes
 #
 
-$VERSION = '0.79';
+$VERSION = '0.80';
 $DEBUG   = 0;
 
 # CRC perl code lifted from Convert::BinHex by Eryq (eryq@enteract.com)
@@ -3139,7 +3139,7 @@ sub _kick_now
 
   my($task, $task_num, $packet);
 
-  $task_num = $self->kick($user_or_socket);
+  $task_num = $self->_kick($user_or_socket);
   $task = $self->{'TASKS'}->{$task_num};
 
   return  unless($task_num);
@@ -3195,6 +3195,8 @@ sub _kick
       new Net::Hotline::Task($task_num, HTLC_TASK_KICK, time());
   }
   else { return }
+
+  return ($task_num);
 }
 
 sub ban
@@ -3217,7 +3219,7 @@ sub _ban_now
 
   my($task, $task_num, $packet);
 
-  $task_num = $self->ban($user_or_socket);
+  $task_num = $self->_ban($user_or_socket);
   $task = $self->{'TASKS'}->{$task_num};
 
   return  unless($task_num);
@@ -3277,6 +3279,8 @@ sub _ban
       new Net::Hotline::Task($task_num, HTLC_TASK_BAN, time());
   }
   else { return }
+  
+  return ($task_num);
 }
 
 sub msg
