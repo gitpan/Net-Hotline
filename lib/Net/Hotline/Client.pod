@@ -357,19 +357,19 @@ blocking task mode.
 
 Returns an array (in array context) or a reference to an array (in scalar
 context) of Net::Hotline::FileListItem objects corresponding to the
-contents of the server directory PATH, and undef or an empty list if an
-error occurred. Should only be used in blocking task mode.
+contents of the server directory PATH, and the scalar value 0 if an error
+occurred (in order to distinguish between an empty directory and an error:
+an empty directory will return an empty list in array context and undef in
+scalar context). Should only be used in blocking task mode.
 
 =item get_news
 
 Get the news from the server.
 
-In blocking task mode, returns an array containing the new posts (in array
-context) or the news as a large text string (in scalar context) on success,
-and undef or an empty list if an error occurred.
-
-In event loop mode, returns a task number if the request was sent
-successfully, and undef or an empty list if an error occurred.
+Returns an array containing the new posts (in array context) or the news as
+a string (in scalar context) on success, and undef if an error occurred.
+Note that successful retrieval of an empty news file will return an empty
+string ("") or an empty list. Should only be used in blocking task mode.
 
 =item get_userinfo SOCKET
 

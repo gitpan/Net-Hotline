@@ -8,7 +8,7 @@ use strict;
 
 use vars qw($VERSION);
 
-$VERSION = '0.67';
+$VERSION = '0.68';
 
 sub new
 {
@@ -74,13 +74,11 @@ sub len2
 
 sub header
 {
-  my($header) = pack("N", $_[0]->{'TYPE'}) . 
-                pack("N", $_[0]->{'SEQ'}) .
-		pack("N", $_[0]->{'TASK'}) .
-		pack("N", $_[0]->{'LEN'}) .
-		pack("N", $_[0]->{'LEN2'});
-
-  return $header;
+  return pack("N5", $_[0]->{'TYPE'},
+                    $_[0]->{'SEQ'},
+                    $_[0]->{'TASK'},
+                    $_[0]->{'LEN'},
+                    $_[0]->{'LEN2'});
 }
 
 1;

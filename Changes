@@ -1,5 +1,14 @@
 Revision history for Perl module Net::Hotline
 
+0.68 (10.21.1998) - John Siracusa <siracusa@mindspring.com>
+
+    * Changed return values in the get_filelist() and get_news() methods
+      to distinguish between error return values and "empty" return
+      values (i.e. empty directories).  See the Net::Hotline::Client
+      documentation for details.
+
+    * Combined multiple pack() calls for efficiency.
+
 0.67 (09.30.1998) - John Siracusa <siracusa@mindspring.com>
 
     * Agreement text is now saved correctly in the client object.

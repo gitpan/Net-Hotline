@@ -35,7 +35,7 @@ require AutoLoader;
 # Class attributes
 #
 
-$VERSION = '0.67';
+$VERSION = '0.68';
 $DEBUG   = 0;
 
 # CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -470,24 +470,26 @@ sub _login
                      length($nick));
   $proto_header->len2($proto_header->len);
 
+  my($fmt) = 'nnna*nna*nna*nnn';
+
   $data = $proto_header->header() .
-          pack("n", 0x0004) .                 # Num atoms
+          pack($fmt, 0x0004,                  # Num atoms
 
-          pack("n", HTLC_DATA_LOGIN) .        # Atom type
-          pack("n", length($enc_login)) .     # Atom length
-          $enc_login .                        # Atom data
+                     HTLC_DATA_LOGIN,         # Atom type
+                     length($enc_login),      # Atom length
+                     $enc_login,              # Atom data
 
-          pack("n", HTLC_DATA_PASSWORD) .     # Atom type
-          pack("n", length($enc_password)) .  # Atom length
-          $enc_password .                     # Atom data
+                     HTLC_DATA_PASSWORD,      # Atom type
+                     length($enc_password),   # Atom length
+                     $enc_password,           # Atom data
 
-          pack("n", HTLC_DATA_NICKNAME) .     # Atom type
-          pack("n", length($nick)) .          # Atom length
-          $nick .                             # Atom data
+                     HTLC_DATA_NICKNAME,      # Atom type
+                     length($nick),           # Atom length
+                     $nick,                   # Atom data
 
-          pack("n", HTLC_DATA_ICON) .         # Atom type
-          pack("n", 2) .                      # Atom length
-          pack("n", $icon);                   # Atom data
+                     HTLC_DATA_ICON,          # Atom type
+                     0x0002,                  # Atom length
+                     $icon);                  # Atom data
 
   _debug(_hexdump($data));
 
@@ -1450,6 +1452,7 @@ sub get_userinfo { al03_get_userinfo(@_) }
 sub user_by_nick { al04_user_by_nick(@_) }
 sub req_userlist { al05_req_userlist(@_) }
 sub req_filelist { al06_req_filelist(@_) }
+sub pchat_action { al07_pchat_action(@_) }
 
 # Internal functons that were also munged up:
 
@@ -1515,7 +1518,7 @@ sub al01_get_filelist
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return;
+    return(0);
   }
 
   $path = $task->path();
@@ -1538,7 +1541,8 @@ sub al06_req_filelist
   my($server) = $self->{'SERVER'};
   return  unless($server->opened());
 
-  my($data, $task_num, @path_parts, $data_length, $length, $save_path);
+  my($data, $task_num, @path_parts, $path_part, $data_length, $length,
+     $save_path);
 
   $path =~ s/^$self->{'PATH_SEPARATOR'}//;
   $path =~ s/$self->{'PATH_SEPARATOR'}$//;
@@ -1575,13 +1579,11 @@ sub al06_req_filelist
 
   if(length($path))
   {
-    $data .= pack("n", 0x0001) .              # Number of atoms
-             pack("n", HTLC_DATA_DIRECTORY) . # Atom type
-             pack("n", $data_length + 2);     # Atom length
+    $data .= pack("n4", 0x0001,               # Number of atoms
+                        HTLC_DATA_DIRECTORY,  # Atom type
+                        $data_length + 2,     # Atom length
 
-    $data .= pack("n", scalar(@path_parts));  # Number of path parts
-
-    my($path_part);
+                        scalar(@path_parts)); # Number of path parts
 
     foreach $path_part (@path_parts)          # Path parts data
     {
@@ -1590,14 +1592,14 @@ sub al06_req_filelist
         croak("Maximum path part length exceeded");
       }
 
-      $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("C", length($path_part)) .# Length
-               $path_part;                    # Path part
+      $data .= pack("nCa*", 0x0000,           # 2 null bytes
+                            length $path_part,# Length
+                            $path_part);      # Path part
     }
   }
   else
   {
-    $data .=  pack("n", 0x0000);
+    $data .= pack("n", 0x0000);
   }
 
   _debug(_hexdump($data));
@@ -1654,11 +1656,11 @@ sub req_userinfo
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0001) .                 # Number of atoms
+          pack("n4", 0x0001,                  # Number of atoms
 
-          pack("n", HTLC_DATA_SOCKET) .       # Atom type
-          pack("n", 0x0002) .                 # Atom length
-          pack("n", $socket);                 # Atom data
+                     HTLC_DATA_SOCKET,        # Atom type
+                     0x0002,                  # Atom length
+                     $socket);                # Atom data
 
   _debug(_hexdump($data));
 
@@ -1922,9 +1924,9 @@ sub _put_file
   # 6C 00 02 03  94                                     l....
 
   # Add size argument
-  $data .= pack("n", HTLC_DATA_HTXF_SIZE) .
-           pack("n", 0x0004) .
-           pack("N", $length);
+  $data .= pack("nnN", HTLC_DATA_HTXF_SIZE,   # Atom type
+                       0x0004,                # Atom length
+                       $length);              # Atom data
 
   _debug(_hexdump($data));
 
@@ -2362,17 +2364,17 @@ sub _al09_file_action_packet_stub
 
   $data = $proto_header->header();
 
-  $data .= pack("n", (@path_parts) ? 2 : 1) . # Number of atoms
-           pack("n", HTLC_DATA_FILE) .        # Atom type
-           pack("n", length($file)) .         # Atom length
-           $file;                             # Atom data
+  $data .= pack("n3a*", @path_parts ? 2 : 1,  # Number of atoms
+                        HTLC_DATA_FILE,       # Atom type
+                        length($file),        # Atom length
+                        $file);               # Atom data
 
   if(@path_parts)
   {
-    $data .= pack("n", HTLC_DATA_DIRECTORY) . # Atom type
-             pack("n", $dir_len + 2 + (3 * @path_parts)) .
+    $data .= pack("n3", HTLC_DATA_DIRECTORY,  # Atom type
+                        $dir_len + 2 + (3 * scalar(@path_parts)),
                                               # Atom length
-             pack("n", scalar(@path_parts));  # Num path parts
+                        scalar(@path_parts)); # Num path parts
 
     my($path_part);
 
@@ -2383,9 +2385,9 @@ sub _al09_file_action_packet_stub
         croak("Maximum path part length exceeded");
       }
 
-      $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("C", length($path_part)) .# Length
-               $path_part;                    # Path part
+      $data .= pack("nCa*", 0x0000,            # 2 null bytes
+                            length($path_part),# Length
+                            $path_part);       # Path part
     }
   }
 
@@ -2527,17 +2529,17 @@ sub _move
 
   $data = $proto_header->header();
 
-  $data .= pack("n", $num_atoms) .            # Number of atoms
-           pack("n", HTLC_DATA_FILE) .        # Atom type
-           pack("n", length($src_file)) .     # Atom length
-           $src_file;                         # Atom data
+  $data .= pack("n3a*", $num_atoms,           # Number of atoms
+                        HTLC_DATA_FILE,       # Atom type
+                        length($src_file),    # Atom length
+                        $src_file);           # Atom data
 
   if(@src_path_parts)
   {
-    $data .= pack("n", HTLC_DATA_DIRECTORY) . # Atom type
-             pack("n", $src_dir_len + 2 + (3 * @src_path_parts)) .
+    $data .= pack("n3", HTLC_DATA_DIRECTORY,  # Atom type
+                        $src_dir_len + 2 + (3 * scalar(@src_path_parts)),
                                               # Atom length
-             pack("n", scalar(@src_path_parts));
+                        scalar(@src_path_parts));
                                               # Num path parts
 
     my($path_part);
@@ -2549,18 +2551,18 @@ sub _move
         croak("Maximum path part length exceeded");
       }
 
-      $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("C", length($path_part)) .# Length
-               $path_part;                    # Path part
+      $data .= pack("nCa*", 0x0000,           # 2 null bytes
+                            length $path_part,# Length
+                            $path_part);      # Path part
     }
   }
 
   if(@dest_path_parts)
   {
-    $data .= pack("n", HTLC_DATA_DESTDIR) .   # Atom type
-             pack("n", $dest_dir_len + 2 + (3 * @dest_path_parts)) .
+    $data .= pack("n3", HTLC_DATA_DESTDIR,    # Atom type
+                        $dest_dir_len + 2 + (3 * scalar(@dest_path_parts)),
                                               # Atom length
-             pack("n", scalar(@dest_path_parts));
+                        scalar(@dest_path_parts));
                                               # Num path parts
 
     my($path_part);
@@ -2572,9 +2574,9 @@ sub _move
         croak("Maximum path part length exceeded");
       }
 
-      $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("C", length($path_part)) .# Length
-               $path_part;                    # Path part
+      $data .= pack("nCa*", 0x0000,           # 2 null bytes
+                            length $path_part,# Length
+                            $path_part);      # Path part
     }
   }
 
@@ -2750,17 +2752,17 @@ sub _change_file_info
   $num_atoms++  if(length($name));
   $num_atoms++  if(defined($comments));
 
-  $data .= pack("n", $num_atoms) .            # Number of atoms
-           pack("n", HTLC_DATA_FILE) .        # Atom type
-           pack("n", length($file)) .         # Atom length
-           $file;                             # Atom data
+  $data .= pack("n3a*", $num_atoms,           # Number of atoms
+                        HTLC_DATA_FILE,       # Atom type
+                        length($file),        # Atom length
+                        $file);               # Atom data
 
   if(@path_parts)
   {
-    $data .= pack("n", HTLC_DATA_DIRECTORY).  # Atom type
-             pack("n", $dir_len + 2 + (3 * @path_parts)) .
+    $data .= pack("n3", HTLC_DATA_DIRECTORY,  # Atom type
+                        $dir_len + 2 + (3 * scalar(@path_parts)),
                                               # Atom length
-             pack("n", scalar(@path_parts));  # Num path parts
+                        scalar(@path_parts)); # Num path parts
 
     my($path_part);
 
@@ -2771,17 +2773,17 @@ sub _change_file_info
         croak("Maximum path part length exceeded");
       }
 
-      $data .= pack("n", 0x0000) .            # 2 null bytes
-               pack("C", length($path_part)) .# Length
-               $path_part;                    # Path part
+      $data .= pack("nCa*", 0x0000,           # 2 null bytes
+                            length $path_part,# Length
+                            $path_part);      # Path part
     }
   }
 
   if(length($name))
   {
-    $data .= pack("n", HTLC_DATA_FILE_RENAME).# Atom type
-             pack("n", length($name)) .       # Length
-             $name;                           # Name
+    $data .= pack("nna*", HTLC_DATA_FILE_RENAME,# Atom type
+                          length($name),      # Length
+                          $name);             # Name
   }
 
   if(defined($comments))
@@ -2790,13 +2792,12 @@ sub _change_file_info
 
     if(length($comments))
     {
-      $data .=  pack("n", length($comments)). # Length
-                $comments;                    # Comments
+      $data .= pack("na*", length($comments), # Length
+                           $comments);        # Comments
     }
     else # Remove comments
     {
-      $data .=  pack("n", 0x0001) .           # Length
-                pack("x")                     # Null byte
+      $data .=  pack("nx", 0x0001);           # Length + null byte
     }
   }
 
@@ -2870,10 +2871,10 @@ sub _post_news
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0001) .                 # Number of atoms
-          pack("n", HTLS_DATA_NEWS_POST) .     # Atom type
-          pack("n", length($post)) .          # Atom length
-          $post;                              # Atom data
+          pack("n3a*", 0x0001,                # Number of atoms
+                       HTLS_DATA_NEWS_POST,   # Atom type
+                       length($post),         # Atom length
+                       $post);                # Atom data
 
   _debug(_hexdump($data));
 
@@ -2899,14 +2900,14 @@ sub get_news
   $task_num = $self->req_news();
   $task = $self->{'TASKS'}->{$task_num};
 
-  return  unless($task_num);
+  return(undef)  unless($task_num);
 
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
   {
     $self->{'LAST_ERROR'} = $task->error_text();
-    return;
+    return(undef);
   }
 
   if(wantarray)
@@ -2915,7 +2916,7 @@ sub get_news
   }
   else
   {
-    return join('_' x 58, @{$self->{'NEWS'}});
+    return (@{$self->{'NEWS'}}) ? join('_' x 58, @{$self->{'NEWS'}}) : "";
   }
 }
 
@@ -3024,15 +3025,15 @@ sub _update_user
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0002) .                 # Num atoms
+          pack("n6a*", 0x0002,                # Num atoms
 
-          pack("n", HTLC_DATA_ICON) .         # Atom type
-          pack("n", 0x0002) .                 # Atom length
-          pack("n", $icon) .                  # Atom data
+                       HTLC_DATA_ICON,        # Atom type
+                       0x0002,                # Atom length
+                       $icon,                 # Atom data
 
-          pack("n", HTLC_DATA_NICKNAME) .     # Atom type
-          pack("n", length($nick)) .          # Atom length
-          $nick;                              # Atom data
+                       HTLC_DATA_NICKNAME,    # Atom type
+                       length($nick),         # Atom length
+                       $nick);                # Atom data
 
   $self->{'NICK'} = $nick;
   $self->{'ICON'} = $icon;
@@ -3161,11 +3162,11 @@ sub _kick
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header() .
-          pack("n", 0x0001) .                 # Num atoms
+          pack("n4", 0x0001,                  # Num atoms
 
-          pack("n", HTLC_DATA_SOCKET) .       # Atom type
-          pack("n", 0x0002) .                 # Atom length
-          pack("n", $socket);                 # Atom data
+                     HTLC_DATA_SOCKET,        # Atom type
+                     0x0002,                  # Atom length
+                     $socket);                # Atom data
 
   _debug(_hexdump($data));
 
@@ -4441,7 +4442,7 @@ sub pchat_decline
   else { return }
 }
 
-sub pchat_action
+sub al07_pchat_action
 {
   my($self, $ref, @message) = @_;
 

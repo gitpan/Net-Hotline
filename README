@@ -1,8 +1,8 @@
 DESCRIPTION
 
 The Net::Hotline modules implement a Hotline interface in Perl.  Currently,
-this includes only Hotline::Client.  Hotline is an internet client/server
-system that's a sort of cross between IRC and a BBS.  See
+this includes only Net::Hotline::Client.  Hotline is an internet client/server
+system that's sort of a cross between IRC and a traditional BBS.  See
 http://www.hotlinesw.com/ for more information.
 
 PREREQUISITES
@@ -16,8 +16,10 @@ upgrade to the latest version if your IO:: modules are not up to date.
 
 CHANGES
 
-Version 0.67 now saves agreement text correctly in the client object. See
-the "Changes" file for more details.
+Version 0.68 changes the return values in a few blocking task methods to
+distinguish between error return values and "empty" return values (i.e. empty
+directories), and contains a few efficiency tweaks.  See the "Changes" file
+for more details.
 
 INSTALLATION
 
@@ -52,7 +54,7 @@ Here are a few common variations on that theme:
 
           31: require AutoLoader;
           32: @ISA = qw(AutoLoader);
-        1469: __END__
+        1471: __END__
 
   Just add a "#" character to the beginning of those lines.
 
