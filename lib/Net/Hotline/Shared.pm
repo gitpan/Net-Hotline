@@ -6,7 +6,7 @@ package Net::Hotline::Shared;
 
 use Carp;
 use IO::Handle;
-use POSIX qw(F_GETFL F_SETFL O_NONBLOCK EINTR);
+use POSIX qw(F_GETFL F_SETFL O_NONBLOCK EINTR EWOULDBLOCK EAGAIN);
 
 use strict;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
@@ -16,7 +16,7 @@ require Exporter;
 @EXPORT_OK = qw(_encode _write _read _hexdump _debug _set_blocking);
 %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-$Net::Hotline::Shared::VERSION = '0.61';
+$Net::Hotline::Shared::VERSION = '0.62';
 
 sub _debug
 {
@@ -54,7 +54,11 @@ sub _write
   {
     $written = syswrite($fh, $$data_ref, $length, $offset);
     next  if($! == EINTR);
-    croak("System write error: $!\n")  unless(defined($written));
+    unless(defined($written))
+    {
+      next  if($! == EWOULDBLOCK || $! == EAGAIN);
+      croak("System write error(", $! + 0, "): $!\n");
+    }
     $length -= $written;
     $offset += $written;
   }
@@ -68,7 +72,7 @@ sub _read
 
   my($offset)   = 0;
   my($read)     = 0;
-  
+
   $blocking = 1  unless(defined($blocking));
 
   #_debug("Reading $length...");
@@ -147,7 +151,7 @@ sub _hexdump
     }
 
     $hex .= sprintf("%02x ", ord(substr($data, $i, 1)));
-    
+
     $ascii .= sprintf("%c", (ord(substr($data, $i, 1)) > 31 and
                              ord(substr($data, $i, 1)) < 127) ?
                              ord(substr($data, $i, 1)) : 46);

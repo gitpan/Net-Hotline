@@ -9,7 +9,7 @@
 ##            demonstrate the Net::Hotline module's blocking task mode.
 ##
 ## Created:  July 10th, 1998
-## Modified: July 20th, 1998
+## Modified: July 31st, 1998
 ##
 
 use Cwd;
@@ -22,7 +22,7 @@ use Net::Hotline::Constants
   qw(HTLC_FOLDER_TYPE HTXF_PARTIAL_TYPE HTXF_PARTIAL_CREATOR
      HTLC_MACOS_TO_UNIX_TIME);
 
-$VERSION = '1.0';
+$VERSION = '1.01';
 
 getopts('bchn:pquvx', \%OPT);
 
@@ -79,6 +79,7 @@ select((select(STDOUT),$| = 1)[0]);
 'ls'      => 'ls [-l] <dir>   List files in <dir> on the server.',
 'macbin'  => 'macbin          Toggle MacBinary download mode.',
 'mget'    => 'mget <regex>    Get files matching <regex> from the server.',
+'mput'    => 'mput <regex>    Put files matching <regex> on server.',
 'nick'    => 'nick <nick>     Set your nickname to <nick>',
 'open'    => 'open <server>   Open connection to <server>',
 'prompt'  => 'prompt          Toggle cautionary prompting.',
@@ -181,7 +182,7 @@ sub Help
           $printed = 1;
         }
       }
-      
+
       if($printed) { print $OUT "\n" }
       else
       {
@@ -195,7 +196,7 @@ sub Help
   }
   else
   {
-    my(@cmds, $i, $j, $cols, $col_width);
+    my(@cmds, $i, $j, $cols);
 
     @cmds = sort(keys(%HELP));
     $cols = int($COLS/10);
@@ -206,8 +207,7 @@ sub Help
     {
       for($j = 0; $j < $cols && $i <= $#cmds; $j++)
       {
-        $cmds[$i] = $cmds[$i] . " " x (10 - length($cmds[$i]));
-        print_wrap $cmds[$i];
+        print $OUT sprintf("%-10s", $cmds[$i]);
         $i++;
       }
       print $OUT "\n";
@@ -287,7 +287,7 @@ sub Start_Up
 
       return($hlc);
     }
-    
+
     if($info->type() =~ /^Folder($| )/i)
     {
       print_wrap "Changing directory to $path...\n"  unless($OPT{'q'});
@@ -415,7 +415,7 @@ sub Converse
     unless($OPT{'q'} || @ARGV);
 
   &Set_Prompt($hlc, \$prompt);
- 
+
   while(defined($cmd = $TERM->readline($prompt)))
   {
     &Process_Command($hlc, $cmd, \$prompt);
@@ -426,19 +426,19 @@ sub Converse
 sub Process_Command
 {
   my($hlc, $cmd, $prompt_ref) = @_;
-  
+
   return unless($cmd =~ /\S/);
-  
+
   for($cmd)
   {
     s/^\s*//;
     s/\s*$//;
   }
-  
+
   return unless(length($cmd));
 
   $_ = $cmd;
-  
+
   if(/^ls(?:\s+(?:(-l)(?:\s+|$))?(.*))?/)
   {
     &List($hlc, $1, $2);
@@ -479,6 +479,10 @@ sub Process_Command
   {
     &Put_File($hlc, $1);
   }
+  elsif(/^mput\s+(\S.*)/)
+  {
+    &Put_Files($hlc, $1);
+  }
   elsif(/^(?:del(?:ete)?|rm)\s+(\S.*)/)
   {
     &Delete_File($hlc, $1);
@@ -495,7 +499,7 @@ sub Process_Command
   {
     &MacBinary_Mode($1);
   }
-  elsif(/^(?:get\s*)?info(?:rmation)?\s+(\S.*)/)
+  elsif(/^info(?:rmation)?\s+(\S.*)/)
   {
     &Get_Info($hlc, $1);
   }
@@ -511,6 +515,11 @@ sub Process_Command
   {
     &Reconnect($hlc, $1, $2);
     &Set_Prompt($hlc, $prompt_ref);
+  }
+  elsif(/^prompt$/)
+  {
+    $PROMPTING = ($PROMPTING) ? 0 : 1;
+    print $OUT "Interactive mode ", ($PROMPTING) ? 'on' : 'off', ".\n";
   }
   elsif(/^long\s*prompt$/)
   {
@@ -628,7 +637,7 @@ sub MacBinary_Mode
 sub Clobber_Mode
 {
   my($hlc, $onoff) = @_;
-  
+
   if(defined($onoff))
   {
     if($onoff =~ /^(on|yes)$/i)
@@ -694,7 +703,7 @@ sub Get_File
     if($MACOS)
     {
       my($creator, $type) = MacPerl::GetFileInfo($finished_file);
-      
+
       if($type eq Net::Hotline::Constants::HTXF_PARTIAL_TYPE &&
          $creator eq Net::Hotline::Constants::HTXF_PARTIAL_CREATOR)
       {
@@ -804,12 +813,11 @@ sub Put_File
   }
 
   my($file, $task, $ref, $size, $remote_path, $check_file, $files, 
-     $resume, $replace, $rflt, @ret);
+     $resume, $replace, $rflt, @path);
 
-  ($file = $path) =~ s/^.*?$LOCAL_SEP([^$LOCAL_SEP])+/$1/;
-
+  @path = &Rel_To_Abs_Path_Local($path);
+  $file = $path[$#path];
   $remote_path = "$RPWD:$file";
-  $path = &Rel_To_Abs_Path_Local($path);
 
   unless(-e $path)
   {
@@ -817,6 +825,11 @@ sub Put_File
     return(undef);
   }
 
+  if(-d $path)
+  {
+    print_wrap "Cannot put a directory.  Use \"mput\" instead.\n";
+    return(undef);
+  }
 
   $files = $hlc->get_filelist($RPWD);
 
@@ -829,7 +842,7 @@ sub Put_File
   foreach $check_file (@{$files})
   {
     next unless($check_file->name() eq $file);
-    
+
     if($check_file->type() eq HTXF_PARTIAL_TYPE &&
        $check_file->creator() eq HTXF_PARTIAL_CREATOR)
     {
@@ -870,11 +883,128 @@ sub Put_File
   {
     print_wrap "Putting file \"$file\" ($size bytes)...\n"  unless($OPT{'q'});
   }
-  
+
   unless($hlc->send_file($task, $ref, $size, $rflt))
   {
     print_wrap "Upload failed: ", $hlc->last_error(), "\n";
     return(undef);
+  }
+
+  return(1);
+}
+
+sub Put_Files
+{
+  my($hlc, $path) = @_;
+
+  unless($hlc->connected())
+  {
+    print_wrap "Not connected.\n";
+    return(undef);
+  }
+
+  my(@path, $save_path, $dir, $check_path, $file, $regex, $found,
+     $cd_backone);
+
+  $save_path = $path;
+
+  @path = &Rel_To_Abs_Path_Local($path);
+  $check_path = &Rel_To_Abs_Path_Local($path);
+
+  if(-d $check_path)
+  {
+    print_wrap "Put the entire directory \"$save_path\"? (y/n) [n]: ";
+    chomp($res = <STDIN>);
+    unless($res =~ /^\s*y(es|up|eah)?\s*$/i)
+    {
+      print_wrap "mput aborted.\n";
+      return(0);
+    }
+    $dir = $check_path;
+    $regex = '*';
+
+    unless(&Make_Dir($hlc, $path[$#path]))
+    {
+      print_wrap "mput aborted.\n";
+      return(0);
+    }
+
+    unless(&Change_Dir_Remote($hlc, $path[$#path]))
+    {
+      print_wrap "mput aborted.\n";
+      return(0);
+    }
+    $cd_backone = 1;
+  }
+  else
+  {
+    $dir = (($MACOS) ? '' : $LOCAL_SEP) .
+           join($LOCAL_SEP, @path[0 .. $#path - 1]);
+    $regex = $path[$#path];
+  }
+
+  $regex = &Shell_RE_To_Perl_RE($regex);
+
+  unless(&Safe_Regex($regex))
+  {
+    $regex = quotemeta($regex);
+  }
+
+  unless(opendir(DIR, $dir))
+  {
+    print_wrap "Could not read directory \"$dir\" - $!\n";
+    return(0);
+  }
+
+  while($file = readdir(DIR))
+  {
+    next if($file !~ /^$regex$/);
+
+    if(-d "$dir$LOCAL_SEP$file")
+    {
+      print_wrap "Skipping directory \"$dir$LOCAL_SEP$file\"\n"
+        unless($OPT{'q'} || ($file =~ /^\.\.?$/ && !$MACOS));
+      next;
+    }
+
+    $found = 1;
+
+    if($PROMPTING)
+    {
+      print_wrap "Put \"$file\"? (ynq) [n]: ";
+      chomp($res = <STDIN>);
+
+      if($res =~ /^\s*q(uit)?\s*$/i)
+      {
+        print_wrap "mput aborted.\n";
+        return(0);
+      }
+      elsif($res !~ /^\s*y(es|up|eah)?\s*/i)
+      {
+        next;
+      }
+    }
+
+    unless(&Put_File($hlc, "$dir$LOCAL_SEP$file"))
+    {
+      if($PROMPTING)
+      {  
+        my($res);
+        print_wrap "Continue with mput? (y/n) [n]: ";
+        chomp($res = <STDIN>);
+        return(1)  unless($res =~ /^\s*y(es|up|eah)?\s*/i);
+      }
+    }
+  }
+
+  if($cd_backone)
+  {
+    &Change_Dir_Remote($hlc, '..');
+  }
+
+  unless($found)
+  {
+    print $OUT "mput: No match.\n";
   }
 
   return(1);
@@ -975,7 +1105,7 @@ sub Get_Files
     }
 
     $file_path = &Rel_To_Abs_Path_Remote($name, $file_dir);
-   
+
     unless(&Get_File($hlc, $file_path))
     {
       if($PROMPTING)
@@ -993,7 +1123,7 @@ sub Get_Files
 sub Nick
 {
   my($hlc, $nick) = @_;
-  
+
   $nick =~ s/(^|^[^\\]|[^\\]{2})"/$1"/g;
   $nick =~ s/^(.{,31}).*/$1/;
 
@@ -1001,7 +1131,7 @@ sub Nick
   {
     $hlc->nick($nick);
     $NICK = $nick;
-  
+
     return(1);
   }
   return(undef);
@@ -1010,7 +1140,7 @@ sub Nick
 sub Icon
 {
   my($hlc, $icon) = @_;
-  
+
   $hlc->icon($icon);
   $ICON = $icon;
 }
@@ -1040,7 +1170,7 @@ sub Get_Info
   }
 
   my($size, $units, $comments);
-  
+
   ($size, $units) = &Size_Units($info->size());
 
   print_wrap "\n",
@@ -1052,7 +1182,7 @@ sub Get_Info
              "Modified: ", &Date_Text($info->mtime()), "\n";
 
   $comments = $info->comment();
-  
+
   if(length($comments))
   {
     print_wrap "Comments: $comments\n";
@@ -1218,7 +1348,7 @@ sub Delete_File
   {
     print_wrap "del: No match.\n";
   }
- 
+
   return(1);
 }
 
@@ -1356,7 +1486,7 @@ sub Change_Dir_Remote
 sub List
 {
   my($hlc, $long, $path) = @_;
- 
+
   unless($hlc->connected())
   {
     print $OUT "Not connected.\n";
@@ -1472,7 +1602,7 @@ sub List
         print $OUT sprintf("%-32s  %10d    %5.1f %-5s    %4s    %4s",
                            $name, $bytes, $size, $units, $type, $creator);
       }
-      
+
       print $OUT "\n";
     }
   }
@@ -1645,7 +1775,7 @@ sub List_Local
   }
 
   closedir(DIR);
-  
+
   unless($printed)
   {
     if(defined($regex))
@@ -1678,7 +1808,7 @@ sub Set_Prompt
 sub Clean_Path
 {
   my($path) = shift;
-  
+
   for($path)
   {
     s/^"(.*?)"$/$1/;
@@ -1691,7 +1821,7 @@ sub Clean_Path
 sub Convert_Path
 {
   my($path) = shift;
-  
+
   for($path)
   {
     s/\\\\/\\/g;
@@ -1766,9 +1896,9 @@ sub Size_Units
 sub Date_Text
 {
   my($date) = shift;
-  
+
   $date += HTLC_MACOS_TO_UNIX_TIME  unless($MACOS);
-  
+
   return ctime($date);
 }
 

@@ -6,7 +6,7 @@ package Net::Hotline::FileInfoItem;
 
 use strict;
 
-$Net::Hotline::FileInfoItem::VERSION = '0.61';
+$Net::Hotline::FileInfoItem::VERSION = '0.62';
 
 sub new
 {

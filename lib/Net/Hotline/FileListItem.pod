@@ -37,7 +37,7 @@ If given an argument, they set an attribute.  In all cases, they
 return the current value of the attribute.
 
 =over 4
-      
+
 =item creator TEXT
 
 The file creator, given as a four-letter Mac OS creator code ("TTXT", "SIT!",

@@ -73,7 +73,7 @@ $ICON_SLEEP            = -414;  # Sleep icon resource id
 MAIN:
 {
   my($nick, $login, $password, $server, $icon, $port);
-  
+
   $nick = $DEF_NICK;
   $icon = $DEF_ICON;
 
@@ -158,7 +158,7 @@ sub Parse_Command_Line
 sub Get_Login_Pass
 {
   my($login, $password, $server, $port);
-  
+
   print "Server: ";
   chomp($server = <STDIN>);
   $server =~ s/^\s*(.*?)\s*$/$1/;
@@ -168,7 +168,7 @@ sub Get_Login_Pass
     $server = $1;
     $port = $2;
   }
-  
+
   print "Login ($DEF_LOGIN): ";
   chomp($login = <STDIN>);
 
@@ -210,7 +210,7 @@ sub Set_Handlers
 sub Connect
 {
   my($hlc, $server, $nick, $login, $password, $icon, $port) = @_;
- 
+
   &Debug("CONNECTING:\n\n",
          "SERVER: $server\n",
          "  NICK: $nick\n",
@@ -435,7 +435,7 @@ sub Change_Nick
 sub Send_Greeting
 {
   my($hlc, $nick) = @_;
-  
+
   my($greeting) = $GREETINGS[int(rand(@GREETINGS))];
 
   $hlc->chat("$greeting $nick.");

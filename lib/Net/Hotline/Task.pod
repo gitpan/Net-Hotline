@@ -31,7 +31,7 @@ new Net::Hotline::Task object with task number NUM, task type TYPE, start time
 START, user socket number SOCKET, and file path PATH.
 
 =back
-      
+
 =head1 METHODS
 
 All the Net::Hotline::Task methods are simple attribute get/set routines.
@@ -39,7 +39,7 @@ If given an argument, they set an attribute.  In all cases, they
 return the current value of the attribute.
 
 =over 4
-      
+
 =item error EXPR
 
 The error state of the task.  A true value means there was an error.

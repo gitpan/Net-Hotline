@@ -56,7 +56,7 @@ if($^O eq 'MacOS')
 
 use strict;
 
-$Net::Hotline::Client::VERSION = '0.61';
+$Net::Hotline::Client::VERSION = '0.62';
 $Net::Hotline::Client::DEBUG   = 0;
 
 # Macbinary CRC perl code lifted Convert::BinHex by Eryq (eryq@enteract.com)
@@ -133,9 +133,9 @@ sub new
     'FILES'        => undef,
     'AGREEMENT'    => undef,
     'TASKS'        => undef,
-    
+
     'FILE_INFO'    => undef,
-    
+
     'HANDLERS'  =>
     {
       'AGREEMENT'     => undef,
@@ -167,7 +167,7 @@ sub new
       'USER_GETINFO'  => undef,
       'USER_LIST'     => undef
     },
-    
+
     'BLOCKING_TASKS'         => undef,
     'DEFAULT_HANDLERS'       => undef,
     'HANDLERS_WHEN_BLOCKING' => undef,
@@ -197,7 +197,7 @@ sub agreement { $_[0]->{'AGREEMENT'} }
 sub blocking
 {
   my($self, $blocking) = @_;
- 
+
   return $self->{'BLOCKING'}  unless(@_ == 2);
 
   if(ref($self->{'SERVER'}) && $self->{'SERVER'}->opened())
@@ -249,7 +249,7 @@ sub data_fork_extension
 sub event_timing
 {
   my($self, $secs) = @_;
-  
+
   if(defined($secs))
   {
     croak "Bad argument to event_timing() - \"$secs\""  if($secs =~ /[^0-9.]/);
@@ -317,7 +317,7 @@ sub connect
   my($self, $server) = @_;
 
   my($address, $port);
-  
+
   if(($address = $server) =~ s/^([^ :]+)(?:[: ](\d+))?$/$1/)
   {
     $port = $2 || HTLS_TCPPORT;
@@ -326,7 +326,7 @@ sub connect
   {
     croak("Bad server address: $server");
   }
-  
+
   $self->{'SERVER'} = 
     IO::Socket::INET->new(PeerAddr =>$address,
                           PeerPort =>$port,
@@ -342,7 +342,7 @@ sub connect
   $self->{'SERVER'}->autoflush(1);
 
   $self->{'SERVER_ADDR'} = "$address";
-  
+
   $self->{'SERVER_ADDR'} .= ":$port"
     if($port !=  HTLS_TCPPORT);
 
@@ -352,7 +352,7 @@ sub connect
 sub disconnect
 {
   my($self) = shift;
-  
+
   if(ref($self->{'SERVER'}) && $self->{'SERVER'}->opened())
   {
     $self->{'SERVER'}->close();
@@ -382,7 +382,7 @@ sub login
 sub _login_now
 {
   my($self, %args) = @_;
-  
+
   my($no_news, $no_userlist, $task_num, $task, $packet);
 
   $no_news     = $args{'NoNews'};
@@ -394,7 +394,7 @@ sub _login_now
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -412,7 +412,7 @@ sub _login_now
       return("0E-0");
     }
   }
-  
+
   unless($no_userlist)
   {
     unless($self->get_userlist())
@@ -433,7 +433,7 @@ sub _login
      $proto_header, $data, $response, $task_num, $server);
 
   $server = $self->{'SERVER'};
-  
+
   unless($server->opened())
   {
     $self->{'LAST_ERROR'} = "login() called before connect()";
@@ -463,7 +463,7 @@ sub _login
   $enc_password = _encode($password);
 
   $proto_header = new Net::Hotline::Protocol::Header;
-  
+
   $proto_header->type(HTLC_HDR_LOGIN);
   $proto_header->seq($self->_next_seqnum());
   $proto_header->task(0x00000000);
@@ -565,7 +565,7 @@ sub _process_packet
   {
     &{$self->{'HANDLERS'}->{'EVENT'}}($self, 0);
   }
-    
+
   _debug("Packet type = $type\n");
 
   if($type == HTLS_HDR_USER_LEAVE)
@@ -689,7 +689,7 @@ sub _process_packet
       elsif($task_type == HTLC_TASK_USER_INFO && defined($packet->{'DATA'}))
       {
         my($user) = $self->{'USER_LIST'}->{$task->socket()};
-        
+
         $user->info($packet->{'DATA'});
 
         if($use_handlers)
@@ -1155,7 +1155,7 @@ sub _process_packet
 sub _handler
 {
   my($self, $code_ref, $type) = @_;
-  
+
   if(defined($code_ref))
   {
     if(ref($code_ref) eq 'CODE')
@@ -1163,7 +1163,7 @@ sub _handler
       $self->{'HANDLERS'}->{$type} = $code_ref;
     }
   }
-  
+
   return $self->{'HANDLERS'}->{$type};
 }
 
@@ -1235,7 +1235,7 @@ sub _hlc_write
     $self->{'LAST_ERROR'} = "Write error: $!";
     return(undef);
   }
-  
+
   return($len);
 }
 
@@ -1250,7 +1250,7 @@ sub _hlc_read
     $self->{'LAST_ERROR'} = "Read error: $!";
     return(undef);
   }
-  
+
   return($len);
 }
 
@@ -1329,14 +1329,14 @@ sub _blocking_task
 sub al01_get_filelist
 {
   my($self, $path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->req_filelist($path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1375,7 +1375,7 @@ sub al06_req_filelist
     $save_path = $path;
     @path_parts = split($self->{'PATH_SEPARATOR'}, $path);
     $path =~ s/$self->{'PATH_SEPARATOR'}//g;
-    
+
     if(length($path) > HTLC_MAX_PATHLEN)
     {
       croak("Maximum path length exceeded");
@@ -1444,14 +1444,14 @@ sub al06_req_filelist
 sub al03_get_userinfo
 {
   my($self, $socket) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->req_userinfo($socket);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1488,7 +1488,7 @@ sub req_userinfo
           pack("n", $socket);                 # Atom data
 
   _debug(_hexdump($data));
-  
+
   $task_num = $proto_header->seq();
 
   if(_hlc_write($self, $server, \$data, length($data)))
@@ -1504,14 +1504,14 @@ sub req_userinfo
 sub al02_get_fileinfo
 {
   my($self, $path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->req_fileinfo($path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1545,14 +1545,14 @@ sub delete_file
 sub _al03_delete_file_now
 {
   my($self, $path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->_delete_file($path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1586,14 +1586,14 @@ sub new_folder
 sub _al04_new_folder_now
 {
   my($self, $path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->_new_folder($path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1627,14 +1627,14 @@ sub put_file
 sub _al05_put_file_now
 {
   my($self, $src_path, $dest_path, $comments) = @_;
-  
+
   my($task, $task_num, $packet, $size);
-  
+
   $task_num = $self->_put_file($src_path, $dest_path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1785,14 +1785,14 @@ sub put_file_resume
 sub _al01_put_file_resume_now
 {
   my($self, $src_path, $dest_path, $comments) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->_al06_put_file_resume($src_path, $dest_path, $comments);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -1846,7 +1846,7 @@ sub _al06_put_file_resume
   # Set new num atoms: old num atoms + 1
   $num_atoms = (unpack("n", substr($data, 20, 2)) + 1);
   substr($data, 20, 2) = pack("n", $num_atoms);
-  
+
   # Fork lengths
   $data_len = (stat($src_path))[7];
   $rsrc_len = 0;
@@ -1934,14 +1934,14 @@ sub get_file
 sub _al07_get_file_now
 {
   my($self, $path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->_get_file($path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2010,14 +2010,14 @@ sub get_file_resume
 sub _al02_get_file_resume_now
 {
   my($self, $path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->_al08_get_file_resume($path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2119,7 +2119,7 @@ sub _al08_get_file_resume
   # 54 41 00 00  1B EA 00 00  00 00 00 00  00 00 4D 41  TA............MA
   # 43 52 00 00  00 00 00 00  00 00 00 00  00 00        CR............
   $more_data = pack("x78");
-  
+
   substr($more_data, 0, 2) = pack("n", HTLC_DATA_RFLT);
   substr($more_data, 2, 2) = pack("n", 0x004A);
   substr($more_data, 4, 4) = HTXF_RFLT_MAGIC;
@@ -2157,7 +2157,7 @@ sub _al09_file_action_packet_stub
   $path =~ s/$self->{'PATH_SEPARATOR'}$//;
   @path_parts = split($self->{'PATH_SEPARATOR'}, $path);
   $path =~ s/$self->{'PATH_SEPARATOR'}//g;
-   
+
   if(length($path) > HTLC_MAX_PATHLEN)
   {
     croak("Maximum path length exceeded");
@@ -2168,7 +2168,7 @@ sub _al09_file_action_packet_stub
   # File part: 2 bytes num atoms, 2 bytes for atom len,
   # 2 bytes for file name length
   $length = (2 + 2 + 2 + length($file));
-    
+
   if(@path_parts)
   {
     $dir_len = length(join('', @path_parts));
@@ -2215,7 +2215,7 @@ sub _al09_file_action_packet_stub
                $path_part;                    # Path part
     }
   }
-  
+
   return($data, $proto_header->seq());
 }
 
@@ -2257,14 +2257,14 @@ sub move
 sub _move_now
 {
   my($self, $src_path, $dest_path) = @_;
-  
+
   my($task, $task_num, $packet);
-  
+
   $task_num = $self->_move($src_path, $dest_path);
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2294,7 +2294,7 @@ sub _move
   $save_src_path = $src_path;
   @src_path_parts = split($self->{'PATH_SEPARATOR'}, $src_path);
   $src_path =~ s/$self->{'PATH_SEPARATOR'}//g;
-   
+
   if(length($src_path) > HTLC_MAX_PATHLEN)
   {
     croak("Maximum path length exceeded");
@@ -2305,7 +2305,7 @@ sub _move
   # Source part: 2 bytes num atoms, 2 bytes for atom type,
   # 2 bytes for file name length
   $length = (2 + 2 + 2 + length($src_file));
-    
+
   if(@src_path_parts)
   {
     $src_dir_len = length(join('', @src_path_parts));
@@ -2323,12 +2323,12 @@ sub _move
   $save_dest_path = $dest_path;
   @dest_path_parts = split($self->{'PATH_SEPARATOR'}, $dest_path);
   $dest_path =~ s/$self->{'PATH_SEPARATOR'}//g;
-   
+
   if(length($dest_path) > HTLC_MAX_PATHLEN)
   {
     croak("Maximum path length exceeded");
   }
-    
+
   if(@dest_path_parts)
   {
     $dest_dir_len = length(join('', @dest_path_parts));
@@ -2444,7 +2444,7 @@ sub _rename_now
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2459,7 +2459,7 @@ sub _rename_now
 sub _rename
 {
   my($self, $path, $new_name) = @_;
-  
+
   return undef  unless(length($path) && length($new_name));
   return _change_file_info($self, $path, $new_name, undef);
 }
@@ -2488,7 +2488,7 @@ sub _comment_now
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2503,7 +2503,7 @@ sub _comment_now
 sub _comment
 {
   my($self, $path, $comments) = @_;
-  
+
   return undef  unless(length($path));
   $comments = ""  unless(defined($comments));
   return _change_file_info($self, $path, undef, $comments);
@@ -2524,7 +2524,7 @@ sub _change_file_info
   $save_path = $path;
   @path_parts = split($self->{'PATH_SEPARATOR'}, $path);
   $path =~ s/$self->{'PATH_SEPARATOR'}//g;
-   
+
   if(length($path) > HTLC_MAX_PATHLEN)
   {
     croak("Maximum path length exceeded");
@@ -2535,7 +2535,7 @@ sub _change_file_info
   # File part: 2 bytes for num atoms, 2 bytes for atom type,
   # 2 bytes for file name length
   $length = (2 + 2 + 2 + length($file));
-    
+
   if(@path_parts)
   {
     $dir_len = length(join('', @path_parts));
@@ -2572,7 +2572,7 @@ sub _change_file_info
   $proto_header->len2($proto_header->len);
 
   $data = $proto_header->header();
-  
+
   $num_atoms = (@path_parts) ? 2 : 1;
   $num_atoms++  if(length($name));
   $num_atoms++  if(defined($comments));
@@ -2614,7 +2614,7 @@ sub _change_file_info
   if(defined($comments))
   {
     $data .= pack("n", HTLS_DATA_FILE_COMMENT);# Atom type
-    
+
     if(length($comments))
     {
       $data .=  pack("n", length($comments)). # Length
@@ -2628,7 +2628,7 @@ sub _change_file_info
   }
 
   _debug(_hexdump($data));
-  
+
   $task_num = $proto_header->seq();
 
   if(_hlc_write($self, $server, \$data, length($data)))
@@ -2665,7 +2665,7 @@ sub _al10_post_news_now
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2727,7 +2727,7 @@ sub get_news
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2820,7 +2820,7 @@ sub icon
   my($self, $icon) = @_;
 
   return $self->{'ICON'}  unless($icon =~ /^-?\d+$/);
-  
+
   return _update_user($self, $icon, $self->{'NICK'});
 }
 
@@ -2829,7 +2829,7 @@ sub nick
   my($self, $nick) = @_;
 
   return $self->{'NICK'}  unless(defined($nick));
-  
+
   return _update_user($self, $self->{'ICON'}, $nick);
 }
 
@@ -2883,7 +2883,7 @@ sub get_userlist
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2953,7 +2953,7 @@ sub _kick_now
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -2973,7 +2973,7 @@ sub _kick
   return(undef)  unless($server->opened());
 
   my($socket, $task_num);
-  
+
   if(ref($user_or_socket)) { $socket = $user_or_socket->socket() }
   else                     { $socket = $user_or_socket           }
 
@@ -3031,7 +3031,7 @@ sub _msg_now
   $task = $self->{'TASKS'}->{$task_num};
 
   return(undef)  unless($task_num);
-  
+
   $packet = _blocking_task($self, $task_num);
 
   if($task->error())
@@ -3055,10 +3055,10 @@ sub _msg
   return(undef)  unless($server->opened());
 
   my($socket);
-  
+
   if(ref($user_or_socket)) { $socket = $user_or_socket->socket() }
   else                     { $socket = $user_or_socket           }
-  
+
   my($data, $task_num);
 
   my($proto_header) = new Net::Hotline::Protocol::Header;
@@ -3092,7 +3092,7 @@ sub _msg
       new Net::Hotline::Task($task_num, HTLC_TASK_SEND_MSG, time());
   }
   else { return(undef) }
-  
+
   return($task_num);
 }
 
@@ -3103,7 +3103,7 @@ sub chat_action
   my($message) = join('', @message);
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
-  
+
   my($server) = $self->{'SERVER'};
   return(undef)  unless($server->opened());
 
@@ -3145,7 +3145,7 @@ sub chat
   my($message) = join('', @message);
 
   $message =~ s/\n/@{[HTLC_NEWLINE]}/osg;
-  
+
   my($server) = $self->{'SERVER'};
   return(undef)  unless($server->opened());
 
@@ -3198,7 +3198,7 @@ sub send_file
     # 00 00 00 00  00 00 00 00  00 02 44 41  54 41 00 06  ..........DATA..
     # 9a cf 00 00  00 00 00 00  00 00 4d 41  43 52 00 00  ..........MACR..
     # 00 00 00 00  00 00 00 00  00 00                     ..........
-    
+
     unless(substr($resume, 0, 4) eq 'RFLT')
     {
       $task->error(1);
@@ -3207,7 +3207,7 @@ sub send_file
       $self->{'LAST_ERROR'} = $task->error_text();
       return(undef);
     }
-    
+
     $data_pos = unpack("N", substr($resume, 46, 4));
     $rsrc_pos = unpack("N", substr($resume, 62, 4));
   }
@@ -3361,7 +3361,7 @@ sub send_file
 
   # 4D 41 43 52  00 00 00 00  00 00 00 00  00 00 01 EC  MACR............
   $data = pack("a4x8N", "MACR", ($rsrc_len - $rsrc_pos));
- 
+
   _debug(_hexdump($data));
 
   unless(_hlc_write($self, $xfer, \$data, length($data)))
@@ -3607,7 +3607,7 @@ sub recv_file
     utime($created, $modified, $data_file);
 
     my($fsspec) = MacPerl::MakeFSSpec($data_file);
-      
+
     if(length($comments))
     {
       Mac::MoreFiles::FSpDTSetComment($fsspec, $comments);
@@ -3621,7 +3621,7 @@ sub recv_file
     $finfo->fdCreator($creator);
     $cat->ioFlFndrInfo($finfo);
     Mac::Files::FSpSetCatInfo($fsspec, $cat);
-    
+
     # Rename data file to remove the .data part
     ($finished_file = $data_file) =~ s/$self->{'DATA_FORK_EXT'}$//;
     rename($data_file, $finished_file);
@@ -3671,7 +3671,7 @@ sub _download
       print $dest_fh $data || return(undef);
       $tot_read += $read;
     }
-    
+
     if($leftover > 0)
     {
       $read = read($src_fh, $data, $leftover);
@@ -3710,7 +3710,7 @@ sub _upload
       unless(defined(read($src_fh, $data, $buf_size))) { return(undef) }
       _hlc_write($self, $dest_fh, \$data, length($data)) || return(undef);
     }
-    
+
     if($leftover > 0)
     {
       unless(defined(read($src_fh, $data, $leftover))) { return(undef) }
@@ -3797,7 +3797,7 @@ sub macbinary
   $macbin_hdr = pack("x128"); # Start with empty 128 byte header
 
   # Offset 000-Byte, old version number, must be kept at zero for compatibility
-  
+
   # Offset 001-Byte, Length of filename (must be in the range 1-63)
   substr($macbin_hdr, 1, 1) = pack("c", length($filename));
 
@@ -3823,7 +3823,7 @@ sub macbinary
     pack("c", unpack("c", substr($finder_flags, 0, 1)) & 0xFE);
 
   # Offset 074-Byte, zero fill, must be zero for compatibility
-  
+
   # Offset 075-Word, file's vertical position within its window.
   substr($macbin_hdr, 75, 2) = pack("n", 0xFFFF);
 
@@ -3861,7 +3861,7 @@ sub macbinary
   #            Skip this many bytes (rounded up to the next multiple of 128)
   #            This is for future expansion only, when sending files with
   #            MacBinary, this word should be zero.
-  
+
   # Offset 122-Byte, Version number of Macbinary II that the uploading program
   # is written for (the version begins at 129)
   substr($macbin_hdr, 122, 1) = pack("c", 129);
@@ -3891,14 +3891,14 @@ sub macbinary
       print $macbin_fh $buf;
     }
     $data_fh->close();
-    
+
     if($data_len % 128)
     {
       $pad = "x" . (128 - ($data_len % 128));
       print $macbin_fh pack($pad);
     }
   }
-  
+
   # Resource fork, null padded to a multiple of 128 bytes
   if($rsrc_len)
   {

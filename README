@@ -16,9 +16,8 @@ date.
 
 CHANGES
 
-Version 0.60 was the first (nearly) feature-complete release.  It had a
-significant bug in User.pm, and version 0.61 was released a day later.
-See the "Changes" file for more details.
+Version 0.62 fixes a major bug in the network write routine, and includes
+an updated version of "hlftp.pl"  See the "Changes" file for more details.
 
 INSTALLATION
 
@@ -46,6 +45,15 @@ Here are a few common variations on that theme:
   For example, "lib/Net/Hotline/Protocol/Packet.pm" would be copied to
   "<Your MacPerl Folder>/lib/Net/Hotline/Protocol/Packet.pm"  (You'll have
   to create any nonexistent folders in the path)
+
+  I'm not sure how to AutoSplit in MacPerl, so what I've been doing is
+  commenting out two lines in "Client.pm" to disable AutoLoading.  The
+  lines are:
+
+          12: use AutoLoader 'AUTOLOAD';
+        1296: __END__
+
+  Just add a "#" character to the beginning of those lines.
 
 EXAMPLES
 

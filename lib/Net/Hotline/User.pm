@@ -6,7 +6,7 @@ package Net::Hotline::User;
 
 use strict;
 
-$Net::Hotline::User::VERSION = '0.61';
+$Net::Hotline::User::VERSION = '0.62';
 
 sub new
 {

@@ -23,7 +23,7 @@ use Net::Hotline::Constants
 
 use strict;
 
-$Net::Hotline::Protocol::Packet::VERSION = '0.61';
+$Net::Hotline::Protocol::Packet::VERSION = '0.62';
 
 sub new
 {
@@ -71,12 +71,12 @@ sub clear
   my($self) = shift;
 
   $self->{'PROTO_HEADER'} = 
-  
+
   $self->{'USER_LIST'}    =
   $self->{'FILE_LIST'}    =
   $self->{'USER_INFO'}    =
   $self->{'NEWS'}         = 
-  
+
   $self->{'SOCKET'}       =
   $self->{'ICON'}         =
   $self->{'COLOR'}        =
@@ -370,7 +370,7 @@ sub read_parse
       $length -= _read($fh, \$data, $atom_len);
 
       _debug("HTXF ref:\n", _hexdump($data));
-      
+
       $self->{'HTXF_REF'} = unpack("N", $data);
     }
     elsif($atom_type == HTLC_DATA_RFLT)
@@ -378,7 +378,7 @@ sub read_parse
       $length -= _read($fh, \$data, $atom_len);
 
       _debug("HTXF RFLT:\n", _hexdump($data));
-      
+
       $self->{'HTXF_RFLT'} = $data;
     }
     else
@@ -400,7 +400,7 @@ sub read_parse
       _debug("Left over data:\n", _hexdump($data));
     }
   }
- 
+
   return(1);
 }
 

@@ -54,7 +54,7 @@ SIZEOF_HL_TASK_FILLER SIZEOF_HL_USER_LIST_HDR);
 
 %EXPORT_TAGS = ('all' => \@EXPORT_OK);
 
-$Net::Hotline::Constants::VERSION = '0.61';
+$Net::Hotline::Constants::VERSION = '0.62';
 
 use constant PATH_SEPARATOR => ($^O eq 'MacOS') ? ':' : '/';
 
